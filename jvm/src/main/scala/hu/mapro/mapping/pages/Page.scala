@@ -8,7 +8,7 @@ object Page{
       head(
         link(
           rel:="stylesheet",
-          href:="https://cdnjs.cloudflare.com/ajax/libs/pure/0.5.0/pure-min.css"
+          href:="main.css"
         )
       ),
       body(

@@ -1,4 +1,8 @@
+import com.typesafe.sbt.web.SbtWeb
+import com.typesafe.sbt.web.Import.WebKeys._
+
 name := "Mapping"
+
 
 lazy val root = project.in(file(".")).
   aggregate(appJS, appJVM).
@@ -16,8 +20,9 @@ lazy val app = crossProject.in(file(".")).
       "com.lihaoyi" %%% "scalatags" % "0.4.6",
       "com.lihaoyi" %%% "upickle" % "0.2.7"
     )
-  ).
-  jvmSettings(
+  )
+  .jvmSettings(Revolver.settings: _*)
+  .jvmSettings(
     resolvers ++= Seq(
       "cwatch-ext-release" at "http://cwatch.org/repo/ext-release-local"
     ),
@@ -28,7 +33,8 @@ lazy val app = crossProject.in(file(".")).
       "com.typesafe.akka" %% "akka-actor" % "2.3.6",
       "com.garmin" % "fit" % "16.10",
       "com.jsuereth" %% "scala-arm" % "1.4"
-    )
+    ),
+    cancelable in Global := true
   ).
   jsSettings(
     persistLauncher in Compile := true,
@@ -42,12 +48,15 @@ lazy val app = crossProject.in(file(".")).
 
   )
 
-lazy val appJVM = app.jvm.settings(
-  (resources in Compile) ++= Seq(
-    (fastOptJS in (appJS, Compile)).value.data
-    , (packageScalaJSLauncher in (appJS, Compile)).value.data
-    , (packageJSDependencies in (appJS, Compile)).value
+lazy val appJVM = app.jvm
+  .settings(
+    (resources in Compile) ++= Seq(
+      (fastOptJS in (appJS, Compile)).value.data
+      , (packageScalaJSLauncher in (appJS, Compile)).value.data
+      , (packageJSDependencies in (appJS, Compile)).value
+      , (exportedAssets in (appJS, Assets)).value
+    )
   )
-)
 lazy val appJS = app.js
+  .enablePlugins(SbtWeb)
 

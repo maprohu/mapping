@@ -12,9 +12,9 @@ object Page{
         )
       ),
       body(
-        script(src:="/mapping-jsdeps.js")
-        , script(src:="/mapping-fastopt.js")
-        , script(src:="/mapping-launcher.js")
+        script(src:="mapping-jsdeps.js")
+        , script(src:="mapping-fastopt.js")
+        , script(src:="mapping-launcher.js")
       )
     )
 }

@@ -19,9 +19,9 @@ lazy val app = crossProject.in(file(".")).
   ).
   jvmSettings(
     resolvers ++= Seq(
-      "cwatch-priv-release" at "https://cwatch.org/repo/priv-release-local"
+      "cwatch-ext-release" at "http://cwatch.org/repo/ext-release-local"
     ),
-    credentials += Credentials(Path.userHome / ".ivy2" / "cwatch.credentials"),
+    //credentials += Credentials(Path.userHome / ".ivy2" / "cwatch.credentials"),
     libraryDependencies ++= Seq(
       "io.spray" %% "spray-can" % "1.3.2",
       "io.spray" %% "spray-routing" % "1.3.2",
@@ -35,8 +35,11 @@ lazy val app = crossProject.in(file(".")).
     persistLauncher in Test := false,
 
     libraryDependencies ++= Seq(
-      "org.scala-js" %%% "scalajs-dom" % "0.8.0"
-    )
+      "org.scala-js" %%% "scalajs-dom" % "0.8.0",
+      "com.github.sjsf" %%% "sjsf-leaflet" % "0.0.1-SNAPSHOT"
+    ),
+    requiresDOM := true
+
   )
 
 lazy val appJVM = app.jvm.settings(

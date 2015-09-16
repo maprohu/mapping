@@ -12,7 +12,8 @@ object Page{
         )
       ),
       body(
-        script(src:="mapping-jsdeps.js")
+        div(id := "map")
+        , script(src:="mapping-jsdeps.js")
         , script(src:="mapping-fastopt.js")
         , script(src:="mapping-launcher.js")
       )

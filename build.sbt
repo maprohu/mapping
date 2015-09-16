@@ -11,14 +11,16 @@ lazy val root = project.in(file(".")).
     publishLocal := {}
   )
 
+
 lazy val app = crossProject.in(file(".")).
   settings(
     name := "mapping",
     version := "0.1-SNAPSHOT",
     scalaVersion := "2.11.7",
     libraryDependencies ++= Seq(
-      "com.lihaoyi" %%% "scalatags" % "0.4.6",
-      "com.lihaoyi" %%% "upickle" % "0.2.7"
+      "com.lihaoyi" %%% "scalatags" % "0.5.2",
+      "com.lihaoyi" %%% "upickle" % "0.3.6",
+      "com.lihaoyi" %%% "autowire" % "0.2.5"
     )
   )
   .jvmSettings(Revolver.settings: _*)
@@ -50,12 +52,14 @@ lazy val app = crossProject.in(file(".")).
 
 lazy val appJVM = app.jvm
   .settings(
+    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
+    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
     (resources in Compile) ++= Seq(
       (fastOptJS in (appJS, Compile)).value.data
       , (packageScalaJSLauncher in (appJS, Compile)).value.data
       , (packageJSDependencies in (appJS, Compile)).value
-      , (exportedAssets in (appJS, Assets)).value
     )
+
   )
 lazy val appJS = app.js
   .enablePlugins(SbtWeb)

@@ -1,5 +1,6 @@
 import com.typesafe.sbt.web.SbtWeb
 import com.typesafe.sbt.web.Import.WebKeys._
+import NativePackagerKeys._
 
 name := "Mapping"
 
@@ -43,14 +44,15 @@ lazy val app = crossProject.in(file(".")).
     persistLauncher in Test := false,
 
     libraryDependencies ++= Seq(
-      "org.scala-js" %%% "scalajs-dom" % "0.8.0",
-      "com.github.sjsf" %%% "sjsf-leaflet" % "0.0.1-SNAPSHOT"
+      "org.scala-js" %%% "scalajs-dom" % "0.8.0"
+      //, "com.github.sjsf" %%% "sjsf-leaflet" % "0.0.1-SNAPSHOT"
     ),
     requiresDOM := true
 
   )
 
 lazy val appJVM = app.jvm
+  .enablePlugins(JavaAppPackaging)
   .settings(
     (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
     (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
@@ -61,6 +63,10 @@ lazy val appJVM = app.jvm
     )
 
   )
+
+lazy val leaflet = ProjectRef(file("scalajs-facades"), "leaflet")
+
 lazy val appJS = app.js
   .enablePlugins(SbtWeb)
+  .dependsOn(leaflet)
 

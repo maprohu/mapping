@@ -9,6 +9,7 @@ import autowire._
 import org.scalajs.dom
 import scala.scalajs.js.JSConverters._
 import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
+import org.querki.jsext.JSOptionBuilder.builder2Options
 
 object Ajaxer extends autowire.Client[String, upickle.default.Reader, upickle.default.Writer]{
   override def doCall(req: Request) = {
@@ -33,18 +34,29 @@ object Client extends JSApp {
     ).addTo(map)
 
 
-    Ajaxer[Api].wayTypes().call().foreach { types =>
-      LControl().layers(
+//    Ajaxer[Api].wayTypes().call().foreach { types =>
+//      LControl().layers(
+//
+//
+//      ).addTo(map)
+//    }
 
+    Ajaxer[Api].tracks().call().foreach { tracks =>
+      tracks.foreach { track =>
+        LPolyline(
+          track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
+        ).addTo(map)
 
-      ).addTo(map)
+      }
     }
 
-    Ajaxer[Api].track().call().foreach { t =>
-      LPolyline(
-        t.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
+    Ajaxer[Api].cycleways().call().foreach { tracks =>
+      LMultiPolyline(
+        tracks.map { track =>
+          track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
+        }.toJSArray,
+        LPolylineOptions.color("yellow")._result
       ).addTo(map)
     }
-
   }
 }

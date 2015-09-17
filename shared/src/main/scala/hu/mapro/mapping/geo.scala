@@ -5,6 +5,6 @@ case class Track(positions: Seq[Position])
 
 
 trait Api {
-  def wayTypes() : Seq[String]
-  def track() : Track
+  def cycleways() : Seq[Track]
+  def tracks() : Seq[Track]
 }

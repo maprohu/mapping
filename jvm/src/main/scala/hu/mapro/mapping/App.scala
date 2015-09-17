@@ -47,16 +47,34 @@ object App extends SimpleRoutingApp with Api {
     }
   }
 
-  override def track(): Track = {
-    Track(
-      Fit.readRecords(getClass.getResource("/test01.fit")).map { r =>
-        Position(semiToDeg(r.getPositionLat), semiToDeg(r.getPositionLong))
-      }
+  override def tracks(): Seq[Track] = {
+    Seq(
+      track("/test01.fit"),
+      track("/test02.fit")
     )
   }
 
+  def track(resource: String): Track = {
+    Track(
+      Fit.readRecords(getClass.getResource(resource))
+        .filter( r => r.getPositionLat !=null & r.getPositionLong != null)
+        .map { r =>
+          Position(semiToDeg(r.getPositionLat), semiToDeg(r.getPositionLong))
+        }
+    )
+  }
+  
   final def semiToDeg(semi : Int) : Double =
     semi * (180.0 / math.pow(2, 31) )
 
-  override def wayTypes(): Seq[String] = MS.highwayTags
+  override def cycleways(): Seq[Track] = MS.cycleways(
+    node => Position(
+      lat = (node \ "@lat").text.toDouble,
+      lon = (node \ "@lon").text.toDouble
+    )
+  )(
+    (way, nodes) => Track(nodes)
+  )
+
+  def wayTypes(): Seq[String] = MS.highwayTags
 }

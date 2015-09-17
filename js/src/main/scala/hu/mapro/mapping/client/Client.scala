@@ -1,6 +1,6 @@
 package hu.mapro.mapping.client
 
-import com.github.sjsf.leaflet.{LPolyline, LTileLayer, LLatLng, LMap}
+import com.github.sjsf.leaflet._
 import hu.mapro.mapping.Api
 
 import scala.scalajs.js.JSApp
@@ -31,6 +31,14 @@ object Client extends JSApp {
     LTileLayer(
       "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
     ).addTo(map)
+
+
+    Ajaxer[Api].wayTypes().call().foreach { types =>
+      LControl().layers(
+
+
+      ).addTo(map)
+    }
 
     Ajaxer[Api].track().call().foreach { t =>
       LPolyline(

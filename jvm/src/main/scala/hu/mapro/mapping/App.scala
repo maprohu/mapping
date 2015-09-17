@@ -57,4 +57,6 @@ object App extends SimpleRoutingApp with Api {
 
   final def semiToDeg(semi : Int) : Double =
     semi * (180.0 / math.pow(2, 31) )
+
+  override def wayTypes(): Seq[String] = MS.highwayTags
 }

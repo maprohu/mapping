@@ -52,7 +52,7 @@ lazy val app = crossProject.in(file(".")).
   )
 
 lazy val appJVM = app.jvm
-  .enablePlugins(JavaAppPackaging)
+  .enablePlugins(JavaServerAppPackaging)
   .settings(
     (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
     (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),

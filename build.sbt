@@ -1,6 +1,9 @@
+import com.typesafe.sbt.packager.archetypes.JavaServerAppPackaging
 import com.typesafe.sbt.web.SbtWeb
 import com.typesafe.sbt.web.Import.WebKeys._
-import NativePackagerKeys._
+import spray.revolver.RevolverPlugin.Revolver
+
+val jsTarget = SettingKey[File]("js-target", "The directory where JS files will be written")
 
 name := "Mapping"
 
@@ -47,20 +50,30 @@ lazy val app = crossProject.in(file(".")).
       "org.scala-js" %%% "scalajs-dom" % "0.8.0"
       //, "com.github.sjsf" %%% "sjsf-leaflet" % "0.0.1-SNAPSHOT"
     ),
-    requiresDOM := true
+    requiresDOM := true,
+
+    jsTarget := target.value / "js",
+
+    (crossTarget in fastOptJS) := jsTarget.value,
+    (crossTarget in fullOptJS) := jsTarget.value,
+    (crossTarget in packageScalaJSLauncher) := jsTarget.value,
+    (crossTarget in packageJSDependencies) := jsTarget.value
+
 
   )
 
 lazy val appJVM = app.jvm
   .enablePlugins(JavaServerAppPackaging)
   .settings(
-    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
-    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
-    (resources in Compile) ++= Seq(
-      (fastOptJS in (appJS, Compile)).value.data
-      , (packageScalaJSLauncher in (appJS, Compile)).value.data
-      , (packageJSDependencies in (appJS, Compile)).value
-    )
+//    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
+//    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
+//    (resources in Compile) ++= Seq(
+//      (packageScalaJSLauncher in (appJS, Compile)).value.data
+//      , (packageJSDependencies in (appJS, Compile)).value
+//    ),
+//    (resources in (universal, packageBin)) ++= Seq(
+//      (fullOptJS in (appJS, Compile)).value.data
+//    )
 
   )
 

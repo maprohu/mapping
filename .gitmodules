@@ -1,3 +1,4 @@
 [submodule "scalajs-facades"]
 	path = scalajs-facades
 	url = https://github.com/maprohu/scalajs-facades.git
+	branch = master

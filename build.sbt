@@ -65,15 +65,15 @@ lazy val app = crossProject.in(file(".")).
 lazy val appJVM = app.jvm
   .enablePlugins(JavaServerAppPackaging)
   .settings(
-//    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
-//    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
+    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
+    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
 //    (resources in Compile) ++= Seq(
 //      (packageScalaJSLauncher in (appJS, Compile)).value.data
 //      , (packageJSDependencies in (appJS, Compile)).value
-//    ),
-//    (resources in (universal, packageBin)) ++= Seq(
-//      (fullOptJS in (appJS, Compile)).value.data
+//      , (fastOptJS in (appJS, Compile)).value.data
 //    )
+
+    (fullClasspath in Runtime) += (jsTarget in appJS).value
 
   )
 

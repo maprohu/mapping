@@ -21,7 +21,7 @@ object App extends SimpleRoutingApp with Api {
     startServer("0.0.0.0", port = port){
       get{
         pathSingleSlash{
-          complete{
+          complete {
             HttpEntity(
               MediaTypes.`text/html`,
               Page.skeleton.render
@@ -50,7 +50,8 @@ object App extends SimpleRoutingApp with Api {
   override def tracks(): Seq[Track] = {
     Seq(
       track("/test01.fit"),
-      track("/test02.fit")
+      track("/test02.fit"),
+      track("/test03.fit")
     )
   }
 

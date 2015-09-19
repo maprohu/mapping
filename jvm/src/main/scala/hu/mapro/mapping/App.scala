@@ -51,7 +51,9 @@ object App extends SimpleRoutingApp with Api {
     Seq(
       track("/test01.fit"),
       track("/test02.fit"),
-      track("/test03.fit")
+      track("/test03.fit"),
+      track("/test04.fit"),
+      track("/test05.fit")
     )
   }
 

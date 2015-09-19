@@ -24,7 +24,15 @@ object App extends SimpleRoutingApp with Api {
           complete {
             HttpEntity(
               MediaTypes.`text/html`,
-              Page.skeleton.render
+              Page.full.render
+            )
+          }
+        } ~
+        path( "index-dev.html" ) {
+          complete {
+            HttpEntity(
+              MediaTypes.`text/html`,
+              Page.fast.render
             )
           }
         } ~

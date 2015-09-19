@@ -1,9 +1,13 @@
-import com.typesafe.sbt.packager.archetypes.JavaServerAppPackaging
+import com.typesafe.sbt.packager.archetypes.{JavaAppPackaging, JavaServerAppPackaging}
 import com.typesafe.sbt.web.SbtWeb
 import com.typesafe.sbt.web.Import.WebKeys._
 import spray.revolver.RevolverPlugin.Revolver
+import com.typesafe.sbt.packager.universal.UniversalPlugin.autoImport.{stage => stageTask}
 
 val jsTarget = SettingKey[File]("js-target", "The directory where JS files will be written")
+
+lazy val Dev = config("dev")
+lazy val jsResources = TaskKey[Seq[File]]("js-resources", "The JS files to be generated")
 
 name := "Mapping"
 
@@ -63,15 +67,29 @@ lazy val app = crossProject.in(file(".")).
   )
 
 lazy val appJVM = app.jvm
-  .enablePlugins(JavaServerAppPackaging)
+  .enablePlugins(JavaAppPackaging)
+  .configs()
   .settings(
     (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
     (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
-//    (resources in Compile) ++= Seq(
-//      (packageScalaJSLauncher in (appJS, Compile)).value.data
-//      , (packageJSDependencies in (appJS, Compile)).value
-//      , (fastOptJS in (appJS, Compile)).value.data
-//    )
+
+    (scalaJSStage in (appJS, stageTask)) := FullOptStage,
+
+    (resourceDirectories in (Compile)) += (jsTarget in appJS).value,
+    (jsResources in Global) :=
+      Seq(
+        (fullOptJS in (appJS, Compile)).value.data
+        , (packageJSDependencies in (appJS, Compile)).value
+        , (packageScalaJSLauncher in (appJS, Compile)).value.data
+      ),
+    (jsResources in Dev) :=
+      Seq(
+        (fastOptJS in (appJS, Compile)).value.data
+        , (packageJSDependencies in (appJS, Compile)).value
+        , (packageScalaJSLauncher in (appJS, Compile)).value.data
+      ),
+    (resourceGenerators in Compile) += jsResources.taskValue,
+
 
     (fullClasspath in Runtime) += (jsTarget in appJS).value
 

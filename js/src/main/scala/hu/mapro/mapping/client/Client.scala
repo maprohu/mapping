@@ -26,7 +26,7 @@ object Ajaxer extends autowire.Client[String, upickle.default.Reader, upickle.de
 object Client extends JSApp {
   @JSExport
   override def main(): Unit = {
-    println("hello2")
+    println("hello6")
 
     val map = LMap("map").setView(LLatLng(38.723582, -9.166328), 14.0)
     LTileLayer(

@@ -36,7 +36,7 @@ object App extends SimpleRoutingApp with Api {
             )
           }
         } ~
-        getFromResourceDirectory("")
+        getFromResourceDirectory("public")
       } ~
       post {
         path("ajax" / Segments){ s =>

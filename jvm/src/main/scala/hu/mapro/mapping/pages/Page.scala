@@ -10,7 +10,7 @@ object Page{
       head(
         link(
           rel:="stylesheet",
-          href:="main.css"
+          href:= "main.css"
         )
       ),
       body(

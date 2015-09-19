@@ -4,7 +4,9 @@ import com.typesafe.sbt.web.Import.WebKeys._
 import spray.revolver.RevolverPlugin.Revolver
 import com.typesafe.sbt.packager.universal.UniversalPlugin.autoImport.{stage => stageTask}
 
-val jsTarget = SettingKey[File]("js-target", "The directory where JS files will be written")
+val webAssetsBase = SettingKey[File]("web-assets-base", "The directory where web assets are written")
+val webAssetsPath = SettingKey[String]("web-assets-path", "The path within the web-assets-base where assets are written")
+val webAssetsTarget = SettingKey[File]("web-assets-target", "The directory where web asset files will be written")
 
 lazy val Dev = config("dev")
 lazy val jsResources = TaskKey[Seq[File]]("js-resources", "The JS files to be generated")
@@ -56,12 +58,21 @@ lazy val app = crossProject.in(file(".")).
     ),
     requiresDOM := true,
 
-    jsTarget := target.value / "js",
+    webAssetsBase := target.value / "assets",
+    webAssetsPath := "public",
+    webAssetsTarget := webAssetsBase.value / webAssetsPath.value,
 
-    (crossTarget in fastOptJS) := jsTarget.value,
-    (crossTarget in fullOptJS) := jsTarget.value,
-    (crossTarget in packageScalaJSLauncher) := jsTarget.value,
-    (crossTarget in packageJSDependencies) := jsTarget.value
+    (crossTarget in fastOptJS) := webAssetsTarget.value,
+    (crossTarget in fullOptJS) := webAssetsTarget.value,
+    (crossTarget in packageScalaJSLauncher) := webAssetsTarget.value,
+    (crossTarget in packageJSDependencies) := webAssetsTarget.value,
+
+    (webJarsDirectory in Assets) := webAssetsTarget.value,
+
+    fastOptJS in Compile := {
+      (webJars in Assets).value
+      (fastOptJS in Compile).value
+    }
 
 
   )
@@ -70,28 +81,37 @@ lazy val appJVM = app.jvm
   .enablePlugins(JavaAppPackaging)
   .configs()
   .settings(
-    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
-    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
+//    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
+//    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
+//
+//    (scalaJSStage in (appJS, stageTask)) := FullOptStage,
+//
+//    (resourceDirectories in (Compile)) += (webAssetsTarget in appJS).value,
+//    (jsResources in Global) :=
+//      Seq(
+//        (fullOptJS in (appJS, Compile)).value.data
+//        , (packageJSDependencies in (appJS, Compile)).value
+//        , (packageScalaJSLauncher in (appJS, Compile)).value.data
+//      ),
+//    (jsResources in Dev) :=
+//      Seq(
+//        (fastOptJS in (appJS, Compile)).value.data
+//        , (packageJSDependencies in (appJS, Compile)).value
+//        , (packageScalaJSLauncher in (appJS, Compile)).value.data
+//      ),
+//    (resourceGenerators in Compile) += jsResources.taskValue,
 
-    (scalaJSStage in (appJS, stageTask)) := FullOptStage,
-
-    (resourceDirectories in (Compile)) += (jsTarget in appJS).value,
-    (jsResources in Global) :=
+    mappings in (Compile, packageBin) ++= (
+      (webJars in (appJS, Assets)).value ++
       Seq(
-        (fullOptJS in (appJS, Compile)).value.data
-        , (packageJSDependencies in (appJS, Compile)).value
-        , (packageScalaJSLauncher in (appJS, Compile)).value.data
-      ),
-    (jsResources in Dev) :=
-      Seq(
-        (fastOptJS in (appJS, Compile)).value.data
-        , (packageJSDependencies in (appJS, Compile)).value
-        , (packageScalaJSLauncher in (appJS, Compile)).value.data
-      ),
-    (resourceGenerators in Compile) += jsResources.taskValue,
+        (fullOptJS in (appJS, Compile)).value.data,
+        (packageScalaJSLauncher in (appJS, Compile)).value.data,
+        (packageJSDependencies in (appJS, Compile)).value
+      )
+    ) pair relativeTo((webAssetsBase in appJS).value),
 
 
-    (fullClasspath in Runtime) += (jsTarget in appJS).value
+    (fullClasspath in Runtime) += (webAssetsBase in appJS).value
 
   )
 

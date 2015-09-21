@@ -117,7 +117,9 @@ lazy val appJVM = app.jvm
 
 lazy val leaflet = ProjectRef(file("scalajs-facades"), "leaflet")
 
+lazy val leafletDraw = ProjectRef(file("scalajs-facades"), "leafletDraw")
+
 lazy val appJS = app.js
   .enablePlugins(SbtWeb)
-  .dependsOn(leaflet)
+  .dependsOn(leaflet, leafletDraw)
 

@@ -54,7 +54,8 @@ lazy val app = crossProject.in(file(".")).
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-dom" % "0.8.0",
       "com.softwaremill.macwire" %% "macros" % "2.0.0",
-      "org.scala-lang.modules" %% "scala-async" % "0.9.5"
+      "org.scala-lang.modules" %% "scala-async" % "0.9.5",
+      "org.webjars" % "font-awesome" % "4.4.0"
       //, "com.github.sjsf" %%% "sjsf-leaflet" % "0.0.1-SNAPSHOT"
     ),
     requiresDOM := true,
@@ -121,9 +122,13 @@ lazy val leaflet = ProjectRef(file("scalajs-facades"), "leaflet")
 
 lazy val leafletDraw = ProjectRef(file("scalajs-facades"), "leafletDraw")
 
+lazy val leafletContextmenu = ProjectRef(file("scalajs-facades"), "leafletContextmenu")
+
+lazy val sidebarV2 = ProjectRef(file("scalajs-facades"), "sidebarV2")
+
 lazy val pouchdb = ProjectRef(file("scalajs-facades"), "pouchdb")
 
 lazy val appJS = app.js
   .enablePlugins(SbtWeb)
-  .dependsOn(leaflet, leafletDraw, pouchdb)
+  .dependsOn(leaflet, leafletDraw, pouchdb, sidebarV2, leafletContextmenu)
 

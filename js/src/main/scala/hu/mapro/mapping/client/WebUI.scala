@@ -2,6 +2,7 @@ package hu.mapro.mapping.client
 
 import com.github.sjsf.leaflet._
 import com.github.sjsf.leaflet.draw._
+import com.github.sjsf.leaflet.sidebarv2.LControlSidebar
 import hu.mapro.mapping.{Track, Api}
 
 import scala.scalajs.js
@@ -30,6 +31,8 @@ class WebUI(store: Store) extends UI {
     layers.addTo(map)
     layers.addBaseLayer(osmLayer, "OSM")
 
+    LControlSidebar("sidebar").addTo(map)
+
     async {
       val drawLayer = await { store.loadDrawings }
       drawLayer.addTo(map)
@@ -37,6 +40,13 @@ class WebUI(store: Store) extends UI {
 
       val drawControl = new LControlDraw(
         LControlDrawOptions
+          .draw(
+            DrawOptions
+            .circle(false)
+            .marker(false)
+            .polyline(false)
+            .rectangle(false)
+          )
           .edit(EditOptions.featureGroup(drawLayer))
           ._result
       )

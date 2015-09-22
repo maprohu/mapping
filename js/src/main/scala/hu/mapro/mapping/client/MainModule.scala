@@ -2,6 +2,7 @@ package hu.mapro.mapping.client
 
 import com.github.sjsf.leaflet.LFeatureGroup
 import com.softwaremill.macwire._
+import hu.mapro.mapping.Position
 
 import scala.concurrent.Future
 
@@ -19,6 +20,8 @@ trait UI {
 }
 
 trait Store {
-  def loadDrawings: Future[LFeatureGroup]
-  def saveDrawings(featureGroup: LFeatureGroup): Future[Unit]
+  type Polygons = Seq[Seq[Position]]
+
+  def loadDrawings: Future[Polygons]
+  def saveDrawings(featureGroup: Polygons): Future[Unit]
 }

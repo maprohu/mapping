@@ -3,7 +3,10 @@ package hu.mapro.mapping.client
 import com.github.sjsf.leaflet._
 import com.github.sjsf.leaflet.draw._
 import hu.mapro.mapping.{Track, Api}
+import upickle.Js
+import upickle.default._
 
+import scala.concurrent.Future
 import scala.scalajs.js
 import scala.scalajs.js.{UndefOr, JSApp}
 import scala.scalajs.js.annotation.JSExport
@@ -15,16 +18,18 @@ import org.querki.jsext.JSOptionBuilder.builder2Options
 import UndefOr._
 import org.querki.jsext._
 
-object Ajaxer extends autowire.Client[String, upickle.default.Reader, upickle.default.Writer]{
-  override def doCall(req: Request) = {
+object Ajaxer extends autowire.Client[Js.Value, Reader, Writer]{
+  override def doCall(req: Request) : Future[Js.Value] = {
     dom.ext.Ajax.post(
       url = "/ajax/" + req.path.mkString("/"),
-      data = upickle.default.write(req.args)
-    ).map(_.responseText)
+      data = upickle.json.write(Js.Obj(req.args.toSeq:_*))
+    )
+      .map(_.responseText)
+      .map(upickle.json.read)
   }
 
-  def read[Result: upickle.default.Reader](p: String) = upickle.default.read[Result](p)
-  def write[Result: upickle.default.Writer](r: Result) = upickle.default.write(r)
+  def read[Result: Reader](p: Js.Value) = readJs[Result](p)
+  def write[Result: Writer](r: Result) = writeJs(r)
 }
 
 object Client extends JSApp with MainModule {

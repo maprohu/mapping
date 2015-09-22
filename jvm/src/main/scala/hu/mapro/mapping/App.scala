@@ -5,13 +5,15 @@ import hu.mapro.mapping.fit.Fit
 import hu.mapro.mapping.pages.Page
 import spray.http.{HttpEntity, MediaTypes}
 import spray.routing.SimpleRoutingApp
+import upickle.Js
+import upickle.default._
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.util.Properties
 
-object Router extends autowire.Server[String, upickle.default.Reader, upickle.default.Writer]{
-  def read[Result: upickle.default.Reader](p: String) = upickle.default.read[Result](p)
-  def write[Result: upickle.default.Writer](r: Result) = upickle.default.write(r)
+object Router extends autowire.Server[Js.Value, Reader, Writer]{
+  def read[Result: Reader](p: Js.Value) = upickle.default.readJs[Result](p)
+  def write[Result: Writer](r: Result) = upickle.default.writeJs(r)
 }
 
 object App extends SimpleRoutingApp with Api {
@@ -45,9 +47,9 @@ object App extends SimpleRoutingApp with Api {
               Router.route[Api](App)(
                 autowire.Core.Request(
                   s,
-                  upickle.default.read[Map[String, String]](e)
+                  upickle.json.read(e).asInstanceOf[Js.Obj].value.toMap
                 )
-              )
+              ).map(upickle.json.write)
             }
           }
         }
@@ -61,7 +63,10 @@ object App extends SimpleRoutingApp with Api {
       track("/test02.fit"),
       track("/test03.fit"),
       track("/test04.fit"),
-      track("/test05.fit")
+      track("/test05.fit"),
+      track("/test06.fit"),
+      track("/test07.fit"),
+      track("/test08.fit")
     )
   }
 
@@ -88,4 +93,8 @@ object App extends SimpleRoutingApp with Api {
   )
 
   def wayTypes(): Seq[String] = MS.highwayTags
+
+  override def generateImg(bounds: Seq[Position]): Unit = {
+    println(bounds.toString())
+  }
 }

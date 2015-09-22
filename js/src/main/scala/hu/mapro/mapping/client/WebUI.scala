@@ -58,7 +58,16 @@ class WebUI(store: Store) extends UI {
             (_:LLatLng, _:LPoint, _:LPoint) =>
               val poss: Seq[Position] = p.getLatLngs().toSeq.map(ll => Position(ll.lat, ll.lng))
               println(poss)
-              Ajaxer[Api].generateImg(poss).call()
+              Ajaxer[Api].generateImg(poss).call().foreach { tracks =>
+                LMultiPolyline(
+                  (tracks map { track =>
+                    (track map { pos =>
+                      LLatLng(pos.lat, pos.lon)
+                    }).toJSArray
+                  }).toJSArray,
+                  LPolylineOptions.color("red")._result
+                ).addTo(map)
+              }
               ()
           }
       )

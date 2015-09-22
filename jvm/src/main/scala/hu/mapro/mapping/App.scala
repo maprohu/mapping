@@ -1,6 +1,9 @@
 package hu.mapro.mapping
 
+import java.awt.Polygon
+
 import akka.actor.ActorSystem
+import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
 import hu.mapro.mapping.fit.Fit
 import hu.mapro.mapping.pages.Page
 import spray.http.{HttpEntity, MediaTypes}
@@ -8,7 +11,7 @@ import spray.routing.SimpleRoutingApp
 import upickle.Js
 import upickle.default._
 import scala.concurrent.ExecutionContext.Implicits.global
-
+import scala.collection.JavaConversions._
 import scala.util.Properties
 
 object Router extends autowire.Server[Js.Value, Reader, Writer]{
@@ -57,17 +60,19 @@ object App extends SimpleRoutingApp with Api {
     }
   }
 
+  lazy val trcks: Seq[Track] = Seq(
+    track("/test01.fit"),
+    track("/test02.fit"),
+    track("/test03.fit"),
+    track("/test04.fit"),
+    track("/test05.fit"),
+    track("/test06.fit"),
+    track("/test07.fit"),
+    track("/test08.fit")
+  )
+
   override def tracks(): Seq[Track] = {
-    Seq(
-      track("/test01.fit"),
-      track("/test02.fit"),
-      track("/test03.fit"),
-      track("/test04.fit"),
-      track("/test05.fit"),
-      track("/test06.fit"),
-      track("/test07.fit"),
-      track("/test08.fit")
-    )
+    trcks
   }
 
   def track(resource: String): Track = {
@@ -98,19 +103,22 @@ object App extends SimpleRoutingApp with Api {
 
   def wayTypes(): Seq[String] = MS.highwayTags
 
-  override def generateImg(bounds: Seq[Position]): Seq[Seq[Position]] = {
-    def isInside(p: Position) : Boolean = true
+  val GF = new GeometryFactory()
 
-    def removeOuts(posIn : Seq[(Position, Boolean)]) : Seq[Seq[Position]] = {
+  override def generateImg(bounds: Seq[Position]): Seq[Seq[Position]] = {
+    val polygon = GF.createPolygon(((bounds.last +: bounds) map {(pos:Position) => new Coordinate(pos.lat, pos.lon)}) .toArray)
+
+    def isInside(p: Position) : Boolean = polygon.contains(GF.createPoint(new Coordinate(p.lat, p.lon)))
+
+    def removeOuts(posIn : Iterator[(Position, Boolean)], acc: Seq[Seq[Position]]) : Seq[Seq[Position]] = {
+      val (in, rest) = posIn dropWhile {!_._2} span {_._2}
+      if (in.isEmpty) acc else removeOuts(rest, (in map {_._1}).toSeq +: acc)
     }
 
-
-    for {
-      track <- cws
-      positions = track.positions
-      posKeep = (false +: (positions map isInside) :+ false) sliding 3 map {_.exists{_}}
-      (pos, in) <- posInWindows.partition()
-
-    } yield Seq()
+    trcks flatMap { track =>
+      val positions = track.positions
+      val posKeep = (false +: (positions map isInside) :+ false) sliding 3 map {_.exists{identity}}
+      removeOuts( positions.iterator zip posKeep, Seq() )
+    }
   }
 }

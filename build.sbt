@@ -43,7 +43,8 @@ lazy val app = crossProject.in(file(".")).
       "io.spray" %% "spray-routing" % "1.3.2",
       "com.typesafe.akka" %% "akka-actor" % "2.3.6",
       "com.garmin" % "fit" % "16.10",
-      "com.jsuereth" %% "scala-arm" % "1.4"
+      "com.jsuereth" %% "scala-arm" % "1.4",
+      "com.vividsolutions" % "jts" % "1.13"
     ),
     cancelable in Global := true
   ).

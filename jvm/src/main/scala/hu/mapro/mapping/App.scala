@@ -83,7 +83,7 @@ object App extends SimpleRoutingApp with Api {
   final def semiToDeg(semi : Int) : Double =
     semi * (180.0 / math.pow(2, 31) )
 
-  override def cycleways(): Seq[Track] = MS.cycleways(
+  lazy val cws: Seq[Track] = MS.cycleways(
     node => Position(
       lat = (node \ "@lat").text.toDouble,
       lon = (node \ "@lon").text.toDouble
@@ -92,9 +92,25 @@ object App extends SimpleRoutingApp with Api {
     (way, nodes) => Track(nodes)
   )
 
+  override def cycleways(): Seq[Track] = {
+    cws
+  }
+
   def wayTypes(): Seq[String] = MS.highwayTags
 
-  override def generateImg(bounds: Seq[Position]): Unit = {
-    println(bounds.toString())
+  override def generateImg(bounds: Seq[Position]): Seq[Seq[Position]] = {
+    def isInside(p: Position) : Boolean = true
+
+    def removeOuts(posIn : Seq[(Position, Boolean)]) : Seq[Seq[Position]] = {
+    }
+
+
+    for {
+      track <- cws
+      positions = track.positions
+      posKeep = (false +: (positions map isInside) :+ false) sliding 3 map {_.exists{_}}
+      (pos, in) <- posInWindows.partition()
+
+    } yield Seq()
   }
 }

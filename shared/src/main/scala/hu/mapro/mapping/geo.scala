@@ -7,5 +7,5 @@ case class Track(positions: Seq[Position])
 trait Api {
   def cycleways() : Seq[Track]
   def tracks() : Seq[Track]
-  def generateImg(bounds: Seq[Position]) : Unit
+  def generateImg(bounds: Seq[Position]) : Seq[Seq[Position]]
 }

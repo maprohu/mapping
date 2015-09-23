@@ -2,6 +2,7 @@ import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
 import com.typesafe.sbt.web.SbtWeb
 import com.typesafe.sbt.web.Import.WebKeys._
 import spray.revolver.RevolverPlugin.Revolver
+import scala.collection.JavaConversions._
 
 val webAssetsBase = SettingKey[File]("web-assets-base", "The directory where web assets are written")
 val webAssetsPath = SettingKey[String]("web-assets-path", "The path within the web-assets-base where assets are written")
@@ -44,9 +45,29 @@ lazy val app = crossProject.in(file(".")).
       "com.typesafe.akka" %% "akka-actor" % "2.3.6",
       "com.garmin" % "fit" % "16.10",
       "com.jsuereth" %% "scala-arm" % "1.4",
-      "com.vividsolutions" % "jts" % "1.13"
+      "com.vividsolutions" % "jts" % "1.13",
+      "uk.me.parabola" % "mkgmap" % "r3643",
+      "com.typesafe.slick" %% "slick" % "3.0.3",
+      "org.postgresql" % "postgresql" % "9.4-1203-jdbc42",
+      "com.google.guava" % "guava" % "18.0"
     ),
-    cancelable in Global := true
+    cancelable in Global := true,
+    resourceGenerators in Compile += Def.task {
+      uk.me.parabola.mkgmap.main.Main.mainNoSystemExit(
+        Seq(
+          s"--output-dir=${(resourceManaged in Compile).value.absolutePath}",
+          (baseDirectory.value / "src" / "script" / "garmin" / "typ" / "mapstyle.txt").absolutePath
+        ).toArray
+      )
+      Seq((resourceManaged in Compile).value / "mapstyle.typ")
+    }.taskValue,
+    resourceGenerators in Compile += Def.task {
+      val zipFile = (resourceManaged in Compile).value / "mapstyle.zip"
+      val styleDir = baseDirectory.value / "src" / "script" / "garmin" / "style"
+      IO.zip((styleDir ** "*") filter {!_.isDirectory} pair relativeTo(styleDir), zipFile)
+      Seq(zipFile)
+    }.taskValue
+
   ).
   jsSettings(
     persistLauncher in Compile := true,

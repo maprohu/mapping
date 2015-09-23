@@ -1,0 +1,8 @@
+[_line]
+Type=0x01
+LineWidth=2
+BorderWidth=1
+Xpm="0 0 2 0"
+"a c #FF00FF"
+"b c #4B0082"
+[end]

@@ -13,6 +13,7 @@ import upickle.default._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.JavaConversions._
 import scala.util.Properties
+import scala.xml.{XML, PrettyPrinter}
 
 object Router extends autowire.Server[Js.Value, Reader, Writer]{
   def read[Result: Reader](p: Js.Value) = upickle.default.readJs[Result](p)
@@ -115,10 +116,15 @@ object App extends SimpleRoutingApp with Api {
       if (in.isEmpty) acc else removeOuts(rest, (in map {_._1}).toSeq +: acc)
     }
 
-    trcks flatMap { track =>
+    val result = trcks flatMap { track =>
       val positions = track.positions
       val posKeep = (false +: (positions map isInside) :+ false) sliding 3 map {_.exists{identity}}
       removeOuts( positions.iterator zip posKeep, Seq() )
     }
+
+    XML.save("d:\\temp\\tracks.xml", OSM.xml(result, "cycleway"))
+    //print(new PrettyPrinter(80, 2).format(OSM.xml(result, "cycleway")))
+
+    result
   }
 }

@@ -36,6 +36,20 @@ class WebUI(store: Store) extends UI {
               i(cls := "fa fa-location-arrow")
             ),
             panel = Seq(
+              h1("GPS Tracks"),
+              form(
+                id := "gps-track-dropzone",
+                cls := "dropzone",
+                action := "/file-upload"
+              )
+            )
+          ),
+          Tab(
+            id = "database",
+            icon = Seq(
+              i(cls := "fa fa-database")
+            ),
+            panel = Seq(
             )
           )
         )

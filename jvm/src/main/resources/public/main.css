@@ -1,8 +1,10 @@
+@import "lib/bootstrap/css/bootstrap.css";
 @import "lib/leaflet/leaflet.css";
 @import "lib/Leaflet.draw/leaflet.draw.css";
 @import "lib/sidebar-v2/css/leaflet-sidebar.css";
 @import "lib/font-awesome/css/font-awesome.css";
 @import "lib/leaflet-contextmenu/dist/leaflet.contextmenu.css";
+@import "lib/dropzone/dropzone.css";
 
 
 
@@ -13,5 +15,5 @@ body {
 html, body, #map {
     height: 100%;
     width: 100%;
-    font: 10pt "Helvetica Neue", Arial, Helvetica, sans-serif;
+    /*font: 10pt "Helvetica Neue", Arial, Helvetica, sans-serif;*/
 }

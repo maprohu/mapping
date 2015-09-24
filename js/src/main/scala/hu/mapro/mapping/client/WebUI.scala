@@ -1,9 +1,10 @@
 package hu.mapro.mapping.client
 
 import com.github.sjsf.leaflet._
+import scalatags.JsDom.all._
 import com.github.sjsf.leaflet.contextmenu.{FeatureMethods, MixinOptions, MixinItemOptions, ItemOptions}
 import com.github.sjsf.leaflet.draw._
-import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar}
+import com.github.sjsf.leaflet.sidebarv2.{Tab, Html, LControlSidebar}
 import hu.mapro.mapping.{Track, Api, Position}
 
 import scala.scalajs.js
@@ -26,7 +27,20 @@ import com.github.sjsf.leaflet.contextmenu.Implicits._
 class WebUI(store: Store) extends UI {
   override def show: Unit = {
     val body = dom.document.body
-    Html.generate.foreach( node => body.appendChild(node.render) )
+    Html
+      .generate(
+        Seq(
+          Tab(
+            id = "gpsTracks",
+            icon = Seq(
+              i(cls := "fa fa-location-arrow")
+            ),
+            panel = Seq(
+            )
+          )
+        )
+      )
+      .foreach( node => body.appendChild(node.render) )
 
     val map = LMap(
       "map",

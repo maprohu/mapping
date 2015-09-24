@@ -50,7 +50,7 @@ object DB {
     gpsTracks.schema.create,
     gpsTracks ++= testData map {res => GpsTrack(None, com.google.common.io.Resources.toByteArray(res))}
   )
-  db.run(MTable.getTables).onSuccess { case tables => if (!tables.isEmpty) db.run(setup) }
+  db.run(MTable.getTables).onSuccess { case tables => if (!tables.exists(t => t.name.name == "gps_tracks")) db.run(setup) }
 
   lazy val testData = Seq(
     getClass.getResource("/test01.fit"),

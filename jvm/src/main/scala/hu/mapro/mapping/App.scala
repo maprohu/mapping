@@ -118,7 +118,7 @@ object App extends SimpleRoutingApp with Api {
         removeOuts( positions.iterator zip posKeep, Seq() )
       }
 
-      XML.save("d:\\temp\\tracks.xml", OSM.xml(result, "cycleway"))
+      //XML.save("d:\\temp\\tracks.xml", OSM.xml(result, "cycleway"))
 
       result
     }

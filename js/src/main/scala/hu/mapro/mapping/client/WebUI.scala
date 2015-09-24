@@ -1,29 +1,28 @@
 package hu.mapro.mapping.client
 
+import autowire._
+import com.github.sjsf.bootstrapnotify.notification
 import com.github.sjsf.leaflet._
-import org.scalajs.dom.{Event, Element}
+import com.github.sjsf.leaflet.contextmenu.Implicits._
+import com.github.sjsf.leaflet.contextmenu.{MixinItemOptions, MixinOptions}
+import com.github.sjsf.leaflet.draw._
+import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
+import hu.mapro.mapping.{Api, Position}
+import org.querki.jsext.JSOptionBuilder._
+import org.scalajs.dom
+import org.scalajs.dom.raw.FormData
+import org.scalajs.dom.{Element, Event}
+import rx._
+
+import scala.async.Async._
+import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
+import scala.scalajs.js
+import scala.scalajs.js._
+import scala.scalajs.js.Any._
+import scala.scalajs.js.JSConverters._
+import scala.scalajs.js.UndefOr._
 import scalatags.JsDom.TypedTag
 import scalatags.JsDom.all._
-import com.github.sjsf.leaflet.contextmenu.{FeatureMethods, MixinOptions, MixinItemOptions, ItemOptions}
-import com.github.sjsf.leaflet.draw._
-import com.github.sjsf.leaflet.sidebarv2.{TabLike, Tab, Html, LControlSidebar}
-import hu.mapro.mapping.{Track, Api, Position}
-
-import scala.scalajs.js
-import scala.scalajs.js.{JSON, UndefOr, JSApp}
-import scala.scalajs.js.annotation.JSExport
-import autowire._
-import org.scalajs.dom
-import scala.scalajs.js.JSConverters._
-import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
-import org.querki.jsext.JSOptionBuilder._
-import UndefOr._
-import org.querki.jsext._
-import async.Async._
-import org.scalajs.dom
-import com.github.sjsf.leaflet.contextmenu.Implicits._
-import org.scalajs.dom.html.Input
-import rx._
 import org.scalajs.jquery._
 
 /**
@@ -184,7 +183,7 @@ object Util {
   }
 }
 
-import Util._
+import hu.mapro.mapping.client.Util._
 
 class GpsTracksTab extends TabLike {
   val id = "gpsTracks"
@@ -202,8 +201,26 @@ class GpsTracksTab extends TabLike {
         input(
           `type` := "file"
         ).custom { input =>
-          input.onchange = { event:Event =>
-              selectedFile() = input.value
+          input.onchange = { _:Event =>
+            val formData = new FormData()
+            jQuery.each(input.files, { (key:js.Any, value:js.Any) =>
+              formData.append(key, value)
+              val s = (new js.Object).asInstanceOf[JQueryAjaxSettings]
+              s.url = "upload/gps-data"
+              s.`type` = "POST"
+              s.data = formData
+              s.cache = false
+              s.dataType = "json"
+              s.processData = false
+              s.contentType = false
+              jQuery.ajax(s)
+
+              notification("hello")
+
+              ().asInstanceOf[js.Any]
+            })
+
+
           }
         }
       )

@@ -60,14 +60,15 @@ object App extends SimpleRoutingApp with Api {
               ).map(upickle.json.write)
             }
           }
-        } /*~
+        } ~
         path("upload" / Segments) { s =>
           entity(as[MultipartFormData]) { formData =>
             complete {
-              ()
+              println("uloaded")
+              ""
             }
           }
-        }*/
+        }
       }
     }
   }
@@ -100,7 +101,7 @@ object App extends SimpleRoutingApp with Api {
     (way, nodes) => Track(nodes)
   )
 
-  override def cycleways(): Seq[Track] = {
+  override def cycleways() = Future {
     cws
   }
 

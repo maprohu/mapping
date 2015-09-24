@@ -22,8 +22,9 @@ lazy val root = project.in(file(".")).
   )
 
 
-lazy val app = crossProject.in(file(".")).
-  settings(
+lazy val app = crossProject.in(file("."))
+  .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings:_*)
+  .settings(
     name := "mapping",
     version := "0.1-SNAPSHOT",
     scalaVersion := "2.11.7",
@@ -156,7 +157,7 @@ lazy val sidebarV2 = ProjectRef(file("scalajs-facades"), "sidebarV2")
 
 lazy val pouchdb = ProjectRef(file("scalajs-facades"), "pouchdb")
 
-lazy val dropzone = ProjectRef(file("scalajs-facades"), "dropzone")
+lazy val bootstrapNotify = ProjectRef(file("scalajs-facades"), "bootstrapNotify")
 
 lazy val appJS = app.js
   .enablePlugins(SbtWeb)
@@ -166,6 +167,6 @@ lazy val appJS = app.js
     pouchdb,
     sidebarV2,
     leafletContextmenu,
-    dropzone
+    bootstrapNotify
   )
 

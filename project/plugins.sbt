@@ -8,6 +8,8 @@ addSbtPlugin("com.typesafe.sbt" % "sbt-web" % "1.2.2")
 
 addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.0.3")
 
+addSbtPlugin("net.virtual-void" % "sbt-dependency-graph" % "0.7.5")
+
 resolvers ++= Seq(
   "cwatch-ext-release" at "http://cwatch.org/repo/ext-release-local"
 )

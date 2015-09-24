@@ -3,6 +3,7 @@ package hu.mapro.mapping.fit
 import java.net.URL
 
 import com.garmin.fit.{RecordMesgListener, MesgBroadcaster, Decode, RecordMesg}
+import com.google.common.io.ByteSource
 
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
@@ -14,7 +15,7 @@ import resource._
  */
 object Fit {
 
-  def readRecords(url: URL) : immutable.Seq[RecordMesg] = {
+  def readRecords(source: ByteSource) : immutable.Seq[RecordMesg] = {
     val decode = new Decode
     val mesgBroadcaster = new MesgBroadcaster()
     val result = new ListBuffer[RecordMesg]
@@ -22,7 +23,7 @@ object Fit {
       override def onMesg(mesg: RecordMesg): Unit =
         result += mesg
     })
-    for (input <- managed(url.openStream())) {
+    for (input <- managed(source.openStream())) {
       decode.read(input, mesgBroadcaster)
     }
     result.toList

@@ -1,10 +1,12 @@
 package hu.mapro.mapping
 
-import java.net.URI
-
+import slick.jdbc.DatabaseUrlDataSource
 import slick.jdbc.JdbcBackend.Database
 import slick.driver.PostgresDriver.api._
+import slick.jdbc.meta.MTable
+import scala.concurrent.ExecutionContext.Implicits.global
 
+import scala.concurrent.Await
 import scala.util.Properties
 
 /**
@@ -14,34 +16,41 @@ object DB {
 
   val urlString = Properties.envOrElse("DATABASE_URL", "postgres://mapping:mapping@localhost/mapping")
 
-  val dbUri = new URI(urlString)
+  val ds = new DatabaseUrlDataSource
+  ds.setUrl(urlString)
+  ds.setDriver("org.postgresql.Driver")
+//  ds.setDriver("slick.driver.PostgresDriver$")
 
-  val username = dbUri.getUserInfo().split(":")(0)
-  val password = dbUri.getUserInfo().split(":")(1)
-  val dbUrl = s"jdbc:postgresql://${dbUri.getHost()}:${dbUri.getPort()}${dbUri.getPath()}"
+//  val dbUri = new URI(urlString)
+//
+//  val username = dbUri.getUserInfo().split(":")(0)
+//  val password = dbUri.getUserInfo().split(":")(1)
+//  val dbUrl = s"jdbc:postgresql://${dbUri.getHost()}:${dbUri.getPort()}${dbUri.getPath()}"
+//
+//  val db = Database.forURL(
+//    url = dbUrl,
+//    user = username,
+//    password = password,
+//    driver = "org.postgresql.Driver"
+//  )
 
-  Database.forURL(
-    url = dbUrl,
-    user = username,
-    password = password,
-    driver = "org.postgresql.Driver"
-  )
+  val db = Database.forDataSource(ds)
 
-  class GpsData(tag: Tag) extends Table[(Int, Array[Byte])](tag, "GPS_DATA") {
-    def id = column[Int]("ID", O.PrimaryKey)
-    def data = column[Array[Byte]]("DATA")
 
-    def * = (id, data)
+  case class GpsTrack(id: Option[Int], data: Array[Byte])
+  class GpsTracks(tag: Tag) extends Table[GpsTrack](tag, "gps_tracks") {
+    def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+    def data = column[Array[Byte]]("data")
+
+    def * = (id.?, data) <> (GpsTrack.tupled, GpsTrack.unapply)
   }
-  val gpsData = TableQuery[GpsData]
+  val gpsTracks = TableQuery[GpsTracks]
 
   val setup = DBIO.seq(
-    gpsData.schema.create,
-    gpsData ++= testData.zipWithIndex map { case (res, idx) =>
-      (idx, com.google.common.io.Resources.toByteArray(res))
-    }
-
+    gpsTracks.schema.create,
+    gpsTracks ++= testData map {res => GpsTrack(None, com.google.common.io.Resources.toByteArray(res))}
   )
+  db.run(MTable.getTables).onSuccess { case tables => if (!tables.isEmpty) db.run(setup) }
 
   lazy val testData = Seq(
     getClass.getResource("/test01.fit"),

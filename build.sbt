@@ -49,7 +49,8 @@ lazy val app = crossProject.in(file(".")).
       "uk.me.parabola" % "mkgmap" % "r3643",
       "com.typesafe.slick" %% "slick" % "3.0.3",
       "org.postgresql" % "postgresql" % "9.4-1203-jdbc42",
-      "com.google.guava" % "guava" % "18.0"
+      "com.google.guava" % "guava" % "18.0",
+      "org.slf4j" % "slf4j-simple" % "1.6.4"
     ),
     cancelable in Global := true,
     resourceGenerators in Compile += Def.task {

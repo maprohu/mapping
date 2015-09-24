@@ -3,6 +3,7 @@ package hu.mapro.mapping
 import java.awt.Polygon
 
 import akka.actor.ActorSystem
+import com.google.common.io.ByteSource
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
 import hu.mapro.mapping.fit.Fit
 import hu.mapro.mapping.pages.Page
@@ -12,8 +13,11 @@ import upickle.Js
 import upickle.default._
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.collection.JavaConversions._
+import scala.concurrent.Future
 import scala.util.Properties
 import scala.xml.{XML, PrettyPrinter}
+import DB._
+import slick.driver.PostgresDriver.api._
 
 object Router extends autowire.Server[Js.Value, Reader, Writer]{
   def read[Result: Reader](p: Js.Value) = upickle.default.readJs[Result](p)
@@ -61,24 +65,15 @@ object App extends SimpleRoutingApp with Api {
     }
   }
 
-  lazy val trcks: Seq[Track] = Seq(
-    track("/test01.fit"),
-    track("/test02.fit"),
-    track("/test03.fit"),
-    track("/test04.fit"),
-    track("/test05.fit"),
-    track("/test06.fit"),
-    track("/test07.fit"),
-    track("/test08.fit")
-  )
+  lazy val allGpsTracks : Future[Seq[Track]] =
+    db.run(gpsTracks.result)
+      .map(tracks => tracks.map(track => parseGpsTrack(ByteSource.wrap(track.data))) )
 
-  override def tracks(): Seq[Track] = {
-    trcks
-  }
+  override def tracks(): Future[Seq[Track]] = allGpsTracks
 
-  def track(resource: String): Track = {
+  def parseGpsTrack(resource: ByteSource): Track = {
     Track(
-      Fit.readRecords(getClass.getResource(resource))
+      Fit.readRecords(resource)
         .filter( r => r.getPositionLat !=null & r.getPositionLong != null)
         .map { r =>
           Position(semiToDeg(r.getPositionLat), semiToDeg(r.getPositionLong))
@@ -106,7 +101,7 @@ object App extends SimpleRoutingApp with Api {
 
   val GF = new GeometryFactory()
 
-  override def generateImg(bounds: Seq[Position]): Seq[Seq[Position]] = {
+  override def generateImg(bounds: Seq[Position]): Future[Seq[Seq[Position]]] = {
     val polygon = GF.createPolygon(((bounds.last +: bounds) map {(pos:Position) => new Coordinate(pos.lat, pos.lon)}) .toArray)
 
     def isInside(p: Position) : Boolean = polygon.contains(GF.createPoint(new Coordinate(p.lat, p.lon)))
@@ -116,15 +111,16 @@ object App extends SimpleRoutingApp with Api {
       if (in.isEmpty) acc else removeOuts(rest, (in map {_._1}).toSeq +: acc)
     }
 
-    val result = trcks flatMap { track =>
-      val positions = track.positions
-      val posKeep = (false +: (positions map isInside) :+ false) sliding 3 map {_.exists{identity}}
-      removeOuts( positions.iterator zip posKeep, Seq() )
+    allGpsTracks.map { tracks =>
+      val result = tracks flatMap { track =>
+        val positions = track.positions
+        val posKeep = (false +: (positions map isInside) :+ false) sliding 3 map {_.exists{identity}}
+        removeOuts( positions.iterator zip posKeep, Seq() )
+      }
+
+      XML.save("d:\\temp\\tracks.xml", OSM.xml(result, "cycleway"))
+
+      result
     }
-
-    XML.save("d:\\temp\\tracks.xml", OSM.xml(result, "cycleway"))
-    //print(new PrettyPrinter(80, 2).format(OSM.xml(result, "cycleway")))
-
-    result
   }
 }

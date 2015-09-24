@@ -7,7 +7,7 @@ import com.google.common.io.ByteSource
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
 import hu.mapro.mapping.fit.Fit
 import hu.mapro.mapping.pages.Page
-import spray.http.{HttpEntity, MediaTypes}
+import spray.http.{MultipartFormData, HttpEntity, MediaTypes}
 import spray.routing.SimpleRoutingApp
 import upickle.Js
 import upickle.default._
@@ -60,7 +60,14 @@ object App extends SimpleRoutingApp with Api {
               ).map(upickle.json.write)
             }
           }
-        }
+        } /*~
+        path("upload" / Segments) { s =>
+          entity(as[MultipartFormData]) { formData =>
+            complete {
+              ()
+            }
+          }
+        }*/
       }
     }
   }

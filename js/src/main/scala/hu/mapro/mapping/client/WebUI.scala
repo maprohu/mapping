@@ -1,14 +1,16 @@
 package hu.mapro.mapping.client
 
 import com.github.sjsf.leaflet._
+import org.scalajs.dom.{Event, Element}
+import scalatags.JsDom.TypedTag
 import scalatags.JsDom.all._
 import com.github.sjsf.leaflet.contextmenu.{FeatureMethods, MixinOptions, MixinItemOptions, ItemOptions}
 import com.github.sjsf.leaflet.draw._
-import com.github.sjsf.leaflet.sidebarv2.{Tab, Html, LControlSidebar}
+import com.github.sjsf.leaflet.sidebarv2.{TabLike, Tab, Html, LControlSidebar}
 import hu.mapro.mapping.{Track, Api, Position}
 
 import scala.scalajs.js
-import scala.scalajs.js.{UndefOr, JSApp}
+import scala.scalajs.js.{JSON, UndefOr, JSApp}
 import scala.scalajs.js.annotation.JSExport
 import autowire._
 import org.scalajs.dom
@@ -20,6 +22,9 @@ import org.querki.jsext._
 import async.Async._
 import org.scalajs.dom
 import com.github.sjsf.leaflet.contextmenu.Implicits._
+import org.scalajs.dom.html.Input
+import rx._
+import org.scalajs.jquery._
 
 /**
  * Created by pappmar on 21/09/2015.
@@ -30,20 +35,7 @@ class WebUI(store: Store) extends UI {
     Html
       .generate(
         Seq(
-          Tab(
-            id = "gpsTracks",
-            icon = Seq(
-              i(cls := "fa fa-location-arrow")
-            ),
-            panel = Seq(
-              h1("GPS Tracks"),
-              form(
-                id := "gps-track-dropzone",
-                cls := "dropzone",
-                action := "/file-upload"
-              )
-            )
-          ),
+          new GpsTracksTab,
           Tab(
             id = "database",
             icon = Seq(
@@ -179,4 +171,49 @@ class WebUI(store: Store) extends UI {
     }
 
   }
+}
+
+object Util {
+  def custom[Builder](f: Element => Unit) : Modifier =
+    new Modifier {
+      override def applyTo(t: Element): Unit = f(t)
+    }
+
+  implicit class CustomTag[T <: Element](tag: TypedTag[T]) {
+    def custom(f: T => Unit) : TypedTag[T] = tag.apply(Util.custom(elem => f(elem.asInstanceOf[T])))
+  }
+}
+
+import Util._
+
+class GpsTracksTab extends TabLike {
+  val id = "gpsTracks"
+  val icon = Seq(
+    i(cls := "fa fa-location-arrow")
+  )
+  val selectedFile = Var("")
+  val panel = Seq(
+    h2("GPS Tracks"),
+    form(
+      action := "upload/gps-track",
+      div(
+        cls := "form-group",
+        label("Upload"),
+        input(
+          `type` := "file"
+        ).custom { input =>
+          input.onchange = { event:Event =>
+              selectedFile() = input.value
+          }
+        }
+      )
+    ).custom { form =>
+      Obs(selectedFile) {
+        selectedFile() match {
+          case null | "" =>
+          case _ => form.submit()
+        }
+      }
+    }
+  )
 }

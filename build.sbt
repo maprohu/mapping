@@ -79,7 +79,8 @@ lazy val app = crossProject.in(file(".")).
       "com.softwaremill.macwire" %% "macros" % "2.0.0",
       "org.scala-lang.modules" %% "scala-async" % "0.9.5",
       "org.webjars" % "font-awesome" % "4.4.0",
-      "be.doeraene" %%% "scalajs-jquery" % "0.8.0"
+      "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
+      "com.lihaoyi" %%% "scalarx" % "0.2.8"
       //, "com.github.sjsf" %%% "sjsf-leaflet" % "0.0.1-SNAPSHOT"
     ),
     jsDependencies ++= Seq(

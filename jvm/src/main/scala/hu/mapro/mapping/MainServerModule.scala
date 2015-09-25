@@ -13,7 +13,7 @@ class MainServerModule {
   lazy implicit val materializer = ActorMaterializer()
   lazy implicit val db = new DBPostgres
   lazy implicit val service = new Service
-  lazy implicit val webservice = new Webservice(this)
+  lazy implicit val webservice = new Webservice
 }
 
 trait DB {
@@ -22,11 +22,3 @@ trait DB {
 
 }
 
-trait DI {
-  def
-
-}
-
-object Actors extends Enumeration {
-  val Main = Value
-}

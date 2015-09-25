@@ -4,11 +4,7 @@
 @import "lib/sidebar-v2/css/leaflet-sidebar.css";
 @import "lib/font-awesome/css/font-awesome.css";
 @import "lib/leaflet-contextmenu/dist/leaflet.contextmenu.css";
-@import "lib/dropzone/dropzone.css";
 @import "lib/animate.css/animate.css";
-
-
-
 
 body {
     padding: 0;

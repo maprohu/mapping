@@ -3,7 +3,7 @@ package hu.mapro.mapping
 import scala.concurrent.Future
 
 case class Position(lat: Double, lon: Double, timestamp: Long = 0)
-case class Track(positions: Seq[Position])
+case class Track(positions: Seq[Position], id : Long = 0)
 
 
 trait Api {
@@ -15,6 +15,8 @@ trait Api {
 
 sealed trait ServerToClientMessage
 object Tick extends ServerToClientMessage
+case class GpsTrackAdded(track: Track) extends ServerToClientMessage
+
 sealed trait ClientToServerMessage
 case class DeleteTrack() extends ClientToServerMessage
 

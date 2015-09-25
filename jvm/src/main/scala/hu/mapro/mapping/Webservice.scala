@@ -8,14 +8,15 @@ import akka.http.scaladsl.server.Directives
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.stage._
+import hu.mapro.mapping.MainActor.ToAllClients
 
 import scala.concurrent.duration._
 
-class Webservice(mainModule: MainServerModule)(implicit fm: Materializer, system: ActorSystem) extends Directives {
-  val theClients = MappingClients.create(mainModule)
+class Webservice(implicit fm: Materializer, system: ActorSystem) extends Directives {
+  val theClients = MappingClients.create(system)
   import system.dispatcher
   system.scheduler.schedule(15.second, 15.second) {
-    theClients.injectMessage(OutgoingMessage(Tick))
+    theClients.injectMessage(ToAllClients(Tick))
   }
 
   def route =
@@ -33,7 +34,7 @@ class Webservice(mainModule: MainServerModule)(implicit fm: Materializer, system
       }
       .via(theClients.clientFlow()) // ... and route them through the chatFlow ...
       .map {
-        case c @ OutgoingMessage(message) ⇒ {
+        case message:ServerToClientMessage => {
           TextMessage.Strict(pickle.serverToClient(message)) // ... pack outgoing messages into WS JSON messages ...
         }
       }

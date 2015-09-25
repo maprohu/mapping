@@ -85,6 +85,8 @@ lazy val app = crossProject.in(file("."))
     (webJarsDirectory in Assets) := webAssetsTarget.value,
     webJarsCache in webJars in Assets := target.value / "webjars-main.cache",
 
+
+
     fastOptJS in Compile := {
       (webJars in Assets).value
       (fastOptJS in Compile).value

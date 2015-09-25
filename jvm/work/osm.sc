@@ -1,7 +1,7 @@
 import java.io.{FileInputStream, File}
 
 import com.garmin.fit._
-import hu.mapro.mapping.fit.Fit
+import hu.mapro.mapping.Fit
 
 import scala.xml.XML
 

@@ -9,7 +9,7 @@ import scala.concurrent.Future
 /**
  * Created by pappmar on 21/09/2015.
  */
-trait MainModule {
+trait MainClientModule {
   lazy val ui = wire[WebUI]
   lazy val store = wire[PouchStore]
 

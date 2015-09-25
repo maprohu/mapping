@@ -1,4 +1,4 @@
-import hu.mapro.mapping.fit.Fit
+import hu.mapro.mapping.Fit
 
 val records = Fit.readRecords(getClass.getResource("/test01.fit"))
 

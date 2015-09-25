@@ -1,21 +1,21 @@
 package hu.mapro.mapping
 
 import java.security.MessageDigest
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import com.google.common.io.ByteSource
 import slick.jdbc.DatabaseUrlDataSource
 import slick.jdbc.JdbcBackend.Database
 import slick.driver.PostgresDriver.api._
 import slick.jdbc.meta.MTable
-import scala.concurrent.ExecutionContext.Implicits.global
 
-import scala.concurrent.Await
+import scala.concurrent.{Future, Await}
 import scala.util.Properties
 
 /**
  * Created by marci on 23-09-2015.
  */
-object DB {
+class DBPostgres extends DB {
 
   def md5(buf: Array[Byte]): Array[Byte] = MessageDigest.getInstance("MD5").digest(buf)
   def hex(buf: Array[Byte]): String = buf.map("%02X" format _).mkString
@@ -82,5 +82,9 @@ object DB {
     getClass.getResource("/test07.fit"),
     getClass.getResource("/test08.fit")
   )
+
+  lazy val allGpsTracks : Future[Seq[Track]] =
+    db.run(gpsTracks.result)
+      .map(tracks => tracks.map(track => Fit.parseGpsTrack(ByteSource.wrap(track.data))) )
 
 }

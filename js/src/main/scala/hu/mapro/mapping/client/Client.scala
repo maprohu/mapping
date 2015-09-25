@@ -32,7 +32,7 @@ object Ajaxer extends autowire.Client[Js.Value, Reader, Writer]{
   def write[Result: Writer](r: Result) = writeJs(r)
 }
 
-object Client extends JSApp with MainModule {
+object Client extends JSApp with MainClientModule {
   @JSExport
   override def main(): Unit = {
     println("hello7")

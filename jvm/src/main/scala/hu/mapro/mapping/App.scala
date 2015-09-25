@@ -10,7 +10,6 @@ import akka.stream.ActorMaterializer
 import akka.stream.scaladsl.{Sink, Source, Flow}
 import com.google.common.io.ByteSource
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
-import hu.mapro.mapping.fit.Fit
 import hu.mapro.mapping.pages.Page
 import upickle.Js
 import upickle.default._
@@ -19,7 +18,6 @@ import scala.collection.JavaConversions._
 import scala.concurrent.Future
 import scala.util.Properties
 import scala.xml.{XML, PrettyPrinter}
-import DB._
 import slick.driver.PostgresDriver.api._
 import akka.http.scaladsl.server.{ExpectedWebsocketRequestRejection, Directives}
 
@@ -28,26 +26,13 @@ object Router extends autowire.Server[Js.Value, Reader, Writer]{
   def write[Result: Writer](r: Result) = upickle.default.writeJs(r)
 }
 
-object App extends Service with Directives {
+object App extends MainServerModule with Directives {
   def main(args: Array[String]): Unit = {
-    implicit val system = ActorSystem()
-    implicit val materializer = ActorMaterializer()
+
     val port = Properties.envOrElse("PORT", "9080").toInt
     val route = {
       get {
-        path("socket") {
-          optionalHeaderValueByType[UpgradeToWebsocket]() {
-            case Some(upgrade) => {
-              val client = newClient
-              complete(upgrade.handleMessagesWithSinkSource(
-                client.sink,
-                client.source
-              ))
-            }
-            case None =>
-              reject(ExpectedWebsocketRequestRejection)
-          }
-        } ~
+        webservice.route ~
         pathSingleSlash{
           complete {
             HttpEntity(
@@ -70,7 +55,7 @@ object App extends Service with Directives {
         path("ajax" / Segments) { s =>
           entity(as[String]) { e =>
             complete {
-              Router.route[Api](App)(
+              Router.route[Api](service)(
                 autowire.Core.Request(
                   s,
                   upickle.json.read(e).asInstanceOf[Js.Obj].value.toMap

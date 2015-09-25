@@ -1,4 +1,4 @@
-import hu.mapro.mapping.DB._
+import hu.mapro.mapping.DBPostgres._
 import scala.concurrent.duration._
 import scala.concurrent.Await
 

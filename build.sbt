@@ -8,9 +8,6 @@ val webAssetsBase = SettingKey[File]("web-assets-base", "The directory where web
 val webAssetsPath = SettingKey[String]("web-assets-path", "The path within the web-assets-base where assets are written")
 val webAssetsTarget = SettingKey[File]("web-assets-target", "The directory where web asset files will be written")
 
-lazy val Dev = config("dev")
-lazy val jsResources = TaskKey[Seq[File]]("js-resources", "The JS files to be generated")
-
 name := "Mapping"
 
 
@@ -40,21 +37,7 @@ lazy val app = crossProject.in(file("."))
       "cwatch-ext-release" at "http://cwatch.org/repo/ext-release-local"
     ),
     //credentials += Credentials(Path.userHome / ".ivy2" / "cwatch.credentials"),
-    libraryDependencies ++= Seq(
-      "com.typesafe.akka" %% "akka-http-experimental" % "1.0",
-      "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
-//      "io.spray" %% "spray-can" % "1.3.2",
-//      "io.spray" %% "spray-routing" % "1.3.2",
-//      "com.typesafe.akka" %% "akka-actor" % "2.3.6",
-      "com.garmin" % "fit" % "16.10",
-      "com.jsuereth" %% "scala-arm" % "1.4",
-      "com.vividsolutions" % "jts" % "1.13",
-      "uk.me.parabola" % "mkgmap" % "r3643",
-      "com.typesafe.slick" %% "slick" % "3.0.3",
-      "org.postgresql" % "postgresql" % "9.4-1203-jdbc42",
-      "com.google.guava" % "guava" % "18.0",
-      "org.slf4j" % "slf4j-simple" % "1.6.4"
-    ),
+    libraryDependencies ++= Deps.serverDependencies,
     cancelable in Global := true,
     resourceGenerators in Compile += Def.task {
       uk.me.parabola.mkgmap.main.Main.mainNoSystemExit(
@@ -84,7 +67,6 @@ lazy val app = crossProject.in(file("."))
       "org.webjars" % "font-awesome" % "4.4.0",
       "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
       "com.lihaoyi" %%% "scalarx" % "0.2.8"
-      //, "com.github.sjsf" %%% "sjsf-leaflet" % "0.0.1-SNAPSHOT"
     ),
     jsDependencies ++= Seq(
       "org.webjars" % "bootstrap" % "3.3.5" / "js/bootstrap.js" dependsOn "jquery.js"
@@ -115,26 +97,6 @@ lazy val appJVM = app.jvm
   .enablePlugins(JavaAppPackaging)
   .configs()
   .settings(
-//    (resourceDirectories in Compile) += (webJarsDirectory in (appJS, Assets)).value,
-//    (resourceGenerators in Compile) <+= (webJars in (appJS, Assets)),
-//
-//    (scalaJSStage in (appJS, stageTask)) := FullOptStage,
-//
-//    (resourceDirectories in (Compile)) += (webAssetsTarget in appJS).value,
-//    (jsResources in Global) :=
-//      Seq(
-//        (fullOptJS in (appJS, Compile)).value.data
-//        , (packageJSDependencies in (appJS, Compile)).value
-//        , (packageScalaJSLauncher in (appJS, Compile)).value.data
-//      ),
-//    (jsResources in Dev) :=
-//      Seq(
-//        (fastOptJS in (appJS, Compile)).value.data
-//        , (packageJSDependencies in (appJS, Compile)).value
-//        , (packageScalaJSLauncher in (appJS, Compile)).value.data
-//      ),
-//    (resourceGenerators in Compile) += jsResources.taskValue,
-
     mappings in (Compile, packageBin) ++= (
       (webJars in (appJS, Assets)).value ++
       Seq(
@@ -143,7 +105,6 @@ lazy val appJVM = app.jvm
         (packageJSDependencies in (appJS, Compile)).value
       )
     ) pair relativeTo((webAssetsBase in appJS).value),
-
 
     (fullClasspath in Runtime) += (webAssetsBase in appJS).value
 

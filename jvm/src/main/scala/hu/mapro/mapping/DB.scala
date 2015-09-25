@@ -1,5 +1,8 @@
 package hu.mapro.mapping
 
+import java.security.MessageDigest
+
+import com.google.common.io.ByteSource
 import slick.jdbc.DatabaseUrlDataSource
 import slick.jdbc.JdbcBackend.Database
 import slick.driver.PostgresDriver.api._
@@ -13,6 +16,10 @@ import scala.util.Properties
  * Created by marci on 23-09-2015.
  */
 object DB {
+
+  def md5(buf: Array[Byte]): Array[Byte] = MessageDigest.getInstance("MD5").digest(buf)
+  def hex(buf: Array[Byte]): String = buf.map("%02X" format _).mkString
+  def hash(buf: Array[Byte]): String = hex(md5(buf))
 
   val urlString = Properties.envOrElse("DATABASE_URL", "postgres://mapping:mapping@localhost/mapping")
 
@@ -37,18 +44,31 @@ object DB {
   val db = Database.forDataSource(ds)
 
 
-  case class GpsTrack(id: Option[Int], data: Array[Byte])
+  case class GpsTrack(
+    id: Option[Int],
+    hash: String,
+    data: Array[Byte]
+  )
+
   class GpsTracks(tag: Tag) extends Table[GpsTrack](tag, "gps_tracks") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
+    def hash = column[String]("hash")
     def data = column[Array[Byte]]("data")
 
-    def * = (id.?, data) <> (GpsTrack.tupled, GpsTrack.unapply)
+    def * = (id.?, hash, data) <> (GpsTrack.tupled, GpsTrack.unapply)
   }
   val gpsTracks = TableQuery[GpsTracks]
 
   val setup = DBIO.seq(
     gpsTracks.schema.create,
-    gpsTracks ++= testData map {res => GpsTrack(None, com.google.common.io.Resources.toByteArray(res))}
+    gpsTracks ++= testData map { res =>
+      val data = com.google.common.io.Resources.toByteArray(res)
+      GpsTrack(
+        None,
+        hash(data),
+        data
+      )
+    }
   )
   db.run(MTable.getTables).onSuccess { case tables => if (!tables.exists(t => t.name.name == "gps_tracks")) db.run(setup) }
 

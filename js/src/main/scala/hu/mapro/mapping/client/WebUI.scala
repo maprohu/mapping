@@ -10,8 +10,8 @@ import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
 import hu.mapro.mapping.{Api, Position}
 import org.querki.jsext.JSOptionBuilder._
 import org.scalajs.dom
-import org.scalajs.dom.raw.FormData
-import org.scalajs.dom.{Element, Event}
+import org.scalajs.dom.raw.{WebSocket, FormData}
+import org.scalajs.dom.{Document, Element, Event}
 import rx._
 
 import scala.async.Async._
@@ -169,6 +169,20 @@ class WebUI(store: Store) extends UI {
 
     }
 
+
+    val socket = new WebSocket(getWebsocketUri(dom.document))
+
+    socket.onopen = { (event:Event) =>
+      println("opened")
+      socket.send("hello ws")
+      event
+    }
+
+  }
+
+  def getWebsocketUri(document: Document): String = {
+    val wsProtocol = if (dom.document.location.protocol == "https:") "wss" else "ws"
+    s"$wsProtocol://${dom.document.location.host}/socket"
   }
 }
 

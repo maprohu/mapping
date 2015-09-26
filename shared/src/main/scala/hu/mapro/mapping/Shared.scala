@@ -15,7 +15,8 @@ trait Api {
 
 sealed trait ServerToClientMessage
 object Tick extends ServerToClientMessage
-case class GpsTrackAdded(track: Track) extends ServerToClientMessage
+case class GpsTracksAdded(tracks: Seq[Track]) extends ServerToClientMessage
+case class GpsTracksRemoved(tracks: Seq[Long]) extends ServerToClientMessage
 
 sealed trait ClientToServerMessage
 case class DeleteTrack() extends ClientToServerMessage

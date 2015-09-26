@@ -7,10 +7,10 @@ import com.github.sjsf.leaflet.contextmenu.Implicits._
 import com.github.sjsf.leaflet.contextmenu.{MixinItemOptions, MixinOptions}
 import com.github.sjsf.leaflet.draw._
 import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
-import hu.mapro.mapping.{Api, Position}
+import hu.mapro.mapping._
 import org.querki.jsext.JSOptionBuilder._
 import org.scalajs.dom
-import org.scalajs.dom.raw.{WebSocket, FormData}
+import org.scalajs.dom.raw.{MessageEvent, WebSocket, FormData}
 import org.scalajs.dom.{Document, Element, Event}
 import rx._
 
@@ -92,82 +92,91 @@ class WebUI(store: Store) extends UI {
       )
       ._result
 
-    async {
-      val drawings : Seq[Seq[Position]] = await { store.loadDrawings }
-      val drawLayer = LFeatureGroup(
-        drawings.map { poly : Seq[Position] =>
-          val p = LPolygon(
-            poly.map { pos : Position => LLatLng(pos.lat, pos.lon) }.toJSArray
-          )
-          p.bindContextMenu(featureOptions(p))
-          p.asInstanceOf[LILayer]
-        }.toJSArray
+    val drawLayer = LFeatureGroup()
+    drawLayer.addTo(map)
+    layers.addOverlay(drawLayer, "Drawings")
+    for {
+      drawings <- store.loadDrawings
+      poly <- drawings
+    } {
+      val p = LPolygon(
+        poly.map { pos : Position => LLatLng(pos.lat, pos.lon) }.toJSArray
       )
+      p.bindContextMenu(featureOptions(p))
+      drawLayer.addLayer(p)
+    }
 
-      drawLayer.addTo(map)
-      layers.addOverlay(drawLayer, "Drawings")
-
-      val drawControl = new LControlDraw(
-        LControlDrawOptions
-          .draw(
-            DrawOptions
+    val drawControl = new LControlDraw(
+      LControlDrawOptions
+        .draw(
+          DrawOptions
             .circle(false)
             .marker(false)
             .polyline(false)
             .rectangle(false)
-          )
-          .edit(EditOptions.featureGroup(drawLayer))
-          ._result
-      )
-      drawControl.addTo(map)
-
-      val save = () => {
-        store.saveDrawings(
-          drawLayer.getLayers().toSeq.map {
-            layer =>
-              layer.asInstanceOf[LPolygon].getLatLngs().toSeq.map {
-                ll => Position(ll.lat, ll.lng)
-              }
-          }
         )
-      }
-      map.on("draw:created", {
-        e:LDrawCreatedEvent =>
-          drawLayer.addLayer(e.layer)
-          e.layer.bindContextMenu(featureOptions(e.layer.asInstanceOf[LPolygon]))
-          save()
-      })
+        .edit(EditOptions.featureGroup(drawLayer))
+        ._result
+    )
+    drawControl.addTo(map)
 
-      map.on("draw:edited", {
-        e:LDrawEditedEvent =>
-          save()
-      })
+    val save = () => {
+      store.saveDrawings(
+        drawLayer.getLayers().toSeq.map {
+          layer =>
+            layer.asInstanceOf[LPolygon].getLatLngs().toSeq.map {
+              ll => Position(ll.lat, ll.lng)
+            }
+        }
+      )
+    }
+    map.on("draw:created", {
+      e:LDrawCreatedEvent =>
+        drawLayer.addLayer(e.layer)
+        e.layer.bindContextMenu(featureOptions(e.layer.asInstanceOf[LPolygon]))
+        save()
+    })
 
-      map.on("draw:deleted", {
-        e:LDrawDeletedEvent =>
-          save()
-      })
+    map.on("draw:edited", {
+      e:LDrawEditedEvent =>
+        save()
+    })
 
-      val cycleways = await { Ajaxer[Api].cycleways().call() }
+    map.on("draw:deleted", {
+      e:LDrawDeletedEvent =>
+        save()
+    })
 
-      val cyclewaysLayer = LMultiPolyline(
+    val cyclewaysLayer = LMultiPolyline(
+      js.Array(),
+      LPolylineOptions.color("yellow")._result
+    ).addTo(map)
+    layers.addOverlay(cyclewaysLayer, "Cycleways")
+
+    for {
+      cycleways <- Ajaxer[Api].cycleways().call()
+    } {
+      cyclewaysLayer.setLatLngs(
         cycleways.map { track =>
           track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
-        }.toJSArray,
-        LPolylineOptions.color("yellow")._result
-      ).addTo(map)
-      layers.addOverlay(cyclewaysLayer, "Cycleways")
-
-      val tracks = await { Ajaxer[Api].tracks().call() }
-
-      tracks.zipWithIndex.foreach { case (track, idx) =>
-        val layer = LPolyline(
-          track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
-        ).addTo(map)
-        layers.addOverlay(layer, s"Track ${idx+1}")
-      }
-
+        }.toJSArray
+      )
     }
+
+    val gpsTracksLayer = LMultiPolyline(
+      js.Array(),
+      LPolylineOptions.color("pink")._result
+    ).addTo(map)
+    layers.addOverlay(gpsTracksLayer, "GPS Tracks")
+
+//    async {
+//      val tracks = await { Ajaxer[Api].tracks().call() }
+//      tracks.zipWithIndex.foreach { case (track, idx) =>
+//        val layer = LPolyline(
+//          track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
+//        ).addTo(map)
+//        layers.addOverlay(layer, s"Track ${idx+1}")
+//    }
 
 
     val socket = new WebSocket(getWebsocketUri(dom.document))
@@ -176,6 +185,21 @@ class WebUI(store: Store) extends UI {
       println("opened")
       socket.send("hello ws")
       event
+    }
+    socket.onmessage = { (event:MessageEvent) =>
+      val msg = upickle.default.read[ServerToClientMessage](event.data.toString)
+
+      msg match {
+        case GpsTracksAdded(tracks) =>
+          for (track <- tracks) {
+            gpsTracksLayer.addLayer(
+              Util
+                .toPolyLine(track)
+                .setStyle(LPolylineOptions.color("red")._result)
+            )
+          }
+        case Tick => println("tick")
+      }
     }
 
   }
@@ -195,6 +219,10 @@ object Util {
   implicit class CustomTag[T <: Element](tag: TypedTag[T]) {
     def custom(f: T => Unit) : TypedTag[T] = tag.apply(Util.custom(elem => f(elem.asInstanceOf[T])))
   }
+
+  def toPolyLine(track: Track) : LPolyline = LPolyline(
+    track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
+  )
 }
 
 import hu.mapro.mapping.client.Util._

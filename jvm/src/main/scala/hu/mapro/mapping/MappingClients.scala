@@ -5,6 +5,7 @@ import akka.stream.OverflowStrategy
 import akka.stream.scaladsl._
 import hu.mapro.mapping.DBActor.InitClient
 import hu.mapro.mapping.MainActor.{ClientInitialized, ToClient}
+import akka.pattern.pipe
 
 
 trait MappingClients {
@@ -72,12 +73,14 @@ class MainActor extends Actor {
   var clients = Set.empty[ActorRef]
 
   def receive: Receive = {
-    case ToClient(client, msg) => client ! msg
     case NewClient(client) =>
       db ! InitClient(client)
     case ClientInitialized(client) =>
       context.watch(client)
       clients += client
+    case ToClient(client, msg) => client ! msg
+    case ToAllClients(msg) => clients.foreach(_ ! msg)
+
 
     case msg: ReceivedMessage    ⇒ //dispatch(msg.toChatMessage)
     case ClientLeft() ⇒ //sendAdminMessage(s"$person left!")
@@ -88,26 +91,34 @@ class MainActor extends Actor {
 }
 
 object DBActor {
+  case class Deps(db: DB, gspTracks: Seq[Track])
   case class InitClient(client: ActorRef)
 
 }
 
-class DBActor extends Actor {
-
-  val db = new DBPostgres
-
-  var allGpsTracks = db.allGpsTracks
+class DBActor extends Actor with Stash {
 
   import DBActor._
   import MainActor._
+  import context.dispatcher
+
+  for {
+    db <- DBPostgres()
+    tracks <- db.allGpsTracks
+  } self ! Deps(db, tracks)
 
   def receive = {
-    case InitClient(client) =>
-      allGpsTracks.onSuccess { case tracks =>
-        for (track <- tracks) context.parent ! ToClient(client, GpsTrackAdded(track))
-        context.parent ! ClientInitialized(client)
-      }
+    case Deps(db, tracks) =>
+      unstashAll()
+      context.become(working(db, tracks))
   }
+
+  def working(db: DB, gpsTracks: Seq[Track]) : Receive = {
+    case InitClient(client) =>
+      context.parent ! ToClient(client, GpsTracksAdded(gpsTracks))
+      context.parent ! ClientInitialized(client)
+  }
+
 }
 
 

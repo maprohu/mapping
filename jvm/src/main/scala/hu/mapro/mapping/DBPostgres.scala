@@ -59,18 +59,6 @@ class DBPostgres extends DB {
   }
   val gpsTracks = TableQuery[GpsTracks]
 
-  val setup = DBIO.seq(
-    gpsTracks.schema.create,
-    gpsTracks ++= testData map { res =>
-      val data = com.google.common.io.Resources.toByteArray(res)
-      GpsTrack(
-        None,
-        hash(data),
-        data
-      )
-    }
-  )
-  db.run(MTable.getTables).onSuccess { case tables => if (!tables.exists(t => t.name.name == "gps_tracks")) db.run(setup) }
 
   lazy val testData = Seq(
     getClass.getResource("/test01.fit"),
@@ -87,4 +75,29 @@ class DBPostgres extends DB {
     db.run(gpsTracks.result)
       .map(tracks => tracks.map(track => Fit.parseGpsTrack(ByteSource.wrap(track.data))) )
 
+}
+
+object DBPostgres {
+  def apply() : Future[DBPostgres] = {
+    val dbp = new DBPostgres
+    import dbp._
+
+    val setup = DBIO.seq(
+      gpsTracks.schema.create,
+      gpsTracks ++= testData map { res =>
+        val data = com.google.common.io.Resources.toByteArray(res)
+        GpsTrack(
+          None,
+          hash(data),
+          data
+        )
+      }
+    )
+    db
+      .run(MTable.getTables)
+      .flatMap[Any] {
+        case tables if !tables.exists(t => t.name.name == "gps_tracks") => db.run(setup)
+        case _ => Future(())
+      }.map(_ => dbp)
+  }
 }

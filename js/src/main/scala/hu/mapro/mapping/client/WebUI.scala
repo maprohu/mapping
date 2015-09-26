@@ -187,7 +187,7 @@ class WebUI(store: Store) extends UI {
       event
     }
     socket.onmessage = { (event:MessageEvent) =>
-      val msg = upickle.default.read[ServerToClientMessage](event.data.toString)
+      val msg = pickle.serverToClient(event.data.toString)
 
       msg match {
         case GpsTracksAdded(tracks) =>
@@ -274,5 +274,7 @@ class GpsTracksTab extends TabLike {
         }
       }
     }
+
+
   )
 }

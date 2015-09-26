@@ -3,6 +3,8 @@ package hu.mapro.mapping
 import akka.actor._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl._
+import com.google.common.io.ByteSource
+import com.google.common.primitives.Bytes
 import hu.mapro.mapping.DBActor.InitClient
 import hu.mapro.mapping.MainActor.{ClientInitialized, ToClient}
 import akka.pattern.pipe
@@ -12,23 +14,26 @@ trait MappingClients {
   def clientFlow(): Flow[ClientToServerMessage, ServerToClientMessage, Unit]
 
   def injectMessage(message: Any): Unit
+
+  def mainActor : ActorRef
 }
 
 object MappingClients {
   def create(actorSystem: ActorSystem): MappingClients = {
     import MainActor._
-    // The implementation uses a single actor per chat to collect and distribute
-    // chat messages. It would be nicer if this could be built by stream operations
-    // directly.
-    val mainActor =
-      actorSystem.actorOf(Props[MainActor], "mainActor")
-
-    // Wraps the mainActor in a sink. When the stream to this sink will be completed
-    // it sends the `ClientLeft` message to the mainActor.
-    // FIXME: here some rate-limiting should be applied to prevent single users flooding the chat
-    def clientInSink() = Sink.actorRef[ClientEvent](mainActor, ClientLeft())
 
     new MappingClients {
+      // The implementation uses a single actor per chat to collect and distribute
+      // chat messages. It would be nicer if this could be built by stream operations
+      // directly.
+      val mainActor =
+        actorSystem.actorOf(Props[MainActor], "mainActor")
+
+      // Wraps the mainActor in a sink. When the stream to this sink will be completed
+      // it sends the `ClientLeft` message to the mainActor.
+      // FIXME: here some rate-limiting should be applied to prevent single users flooding the chat
+      def clientInSink() = Sink.actorRef[ClientEvent](mainActor, ClientLeft())
+
       def clientFlow(): Flow[ClientToServerMessage, ServerToClientMessage, Unit] = {
         val in =
           Flow[ClientToServerMessage]
@@ -59,8 +64,12 @@ object MainActor {
   case class NewClient(subscriber: ActorRef) extends ClientEvent
   case class ClientLeft() extends ClientEvent
   case class ReceivedMessage(message: ClientToServerMessage) extends ClientEvent
+
   case class ToClient(client: ActorRef, msg: ServerToClientMessage)
   case class ToAllClients(msg: ServerToClientMessage)
+  case class GpsTrackUploaded(data: Array[Byte])
+
+
   case class ClientInitialized(client: ActorRef)
 
 }
@@ -81,6 +90,8 @@ class MainActor extends Actor {
     case ToClient(client, msg) => client ! msg
     case ToAllClients(msg) => clients.foreach(_ ! msg)
 
+    case msg:GpsTrackUploaded =>
+      db ! msg
 
     case msg: ReceivedMessage    ⇒ //dispatch(msg.toChatMessage)
     case ClientLeft() ⇒ //sendAdminMessage(s"$person left!")
@@ -93,6 +104,7 @@ class MainActor extends Actor {
 object DBActor {
   case class Deps(db: DB, gspTracks: Seq[Track])
   case class InitClient(client: ActorRef)
+  case class GpsTrackSaved(track: Track)
 
 }
 
@@ -117,6 +129,20 @@ class DBActor extends Actor with Stash {
     case InitClient(client) =>
       context.parent ! ToClient(client, GpsTracksAdded(gpsTracks))
       context.parent ! ClientInitialized(client)
+    case GpsTrackUploaded(msg) =>
+      db
+        .saveGpsTrack(msg)
+        .map{id =>
+          GpsTrackSaved(Track(Fit.parseGpsPositions(ByteSource.wrap(msg)), id))
+        }
+        .pipeTo(self)
+    case GpsTrackSaved(track) =>
+      context.parent !
+        ToAllClients(
+          GpsTracksAdded(Seq(track))
+        )
+      context.become(working(db, track +: gpsTracks))
+
   }
 
 }

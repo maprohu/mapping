@@ -20,5 +20,7 @@ trait DB {
 
   def allGpsTracks : Future[Seq[Track]]
 
+  def saveGpsTrack(data: Array[Byte]) : Future[Int]
+
 }
 

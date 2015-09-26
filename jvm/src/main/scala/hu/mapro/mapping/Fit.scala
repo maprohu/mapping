@@ -31,15 +31,19 @@ object Fit {
 
   def parseGpsTrack(resource: ByteSource): Track = {
     Track(
-      readRecords(resource)
-        .filter( r => r.getPositionLat !=null & r.getPositionLong != null)
-        .map { r =>
-        Position(
-          semiToDeg(r.getPositionLat),
-          semiToDeg(r.getPositionLong),
-          r.getTimestamp.getTimestamp
-        )
-      }
+      parseGpsPositions(resource)
     )
+  }
+
+  def parseGpsPositions(resource: ByteSource): Seq[Position] = {
+    readRecords(resource)
+      .filter(r => r.getPositionLat != null & r.getPositionLong != null)
+      .map { r =>
+      Position(
+        semiToDeg(r.getPositionLat),
+        semiToDeg(r.getPositionLong),
+        r.getTimestamp.getTimestamp
+      )
+    }
   }
 }

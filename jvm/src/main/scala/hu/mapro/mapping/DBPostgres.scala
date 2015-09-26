@@ -48,7 +48,13 @@ class DBPostgres extends DB {
     id: Option[Int],
     hash: String,
     data: Array[Byte]
-  )
+  ) {
+    def this(data: Array[Byte]) =
+      this(None, hash(data), data)
+    def this(id: Int, data: Array[Byte]) =
+      this(Some(id), hash(data), data)
+  }
+
 
   class GpsTracks(tag: Tag) extends Table[GpsTrack](tag, "gps_tracks") {
     def id = column[Int]("id", O.PrimaryKey, O.AutoInc)
@@ -60,6 +66,20 @@ class DBPostgres extends DB {
   val gpsTracks = TableQuery[GpsTracks]
 
 
+
+  lazy val allGpsTracks : Future[Seq[Track]] =
+    db.run(gpsTracks.result)
+      .map(tracks => tracks.map(track => Fit.parseGpsTrack(ByteSource.wrap(track.data))) )
+
+
+  def saveGpsTrack(data: Array[Byte]): Future[Int] = {
+    db.run(
+      (gpsTracks returning gpsTracks.map(_.id)) += new GpsTrack(data)
+    )
+  }
+}
+
+object DBPostgres {
   lazy val testData = Seq(
     getClass.getResource("/test01.fit"),
     getClass.getResource("/test02.fit"),
@@ -71,13 +91,6 @@ class DBPostgres extends DB {
     getClass.getResource("/test08.fit")
   )
 
-  lazy val allGpsTracks : Future[Seq[Track]] =
-    db.run(gpsTracks.result)
-      .map(tracks => tracks.map(track => Fit.parseGpsTrack(ByteSource.wrap(track.data))) )
-
-}
-
-object DBPostgres {
   def apply() : Future[DBPostgres] = {
     val dbp = new DBPostgres
     import dbp._

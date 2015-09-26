@@ -7,9 +7,12 @@ import akka.http.scaladsl._
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.model.ws._
 import akka.stream.ActorMaterializer
+import akka.stream.javadsl.FlattenStrategy
 import akka.stream.scaladsl.{Sink, Source, Flow}
+import akka.util.ByteString
 import com.google.common.io.ByteSource
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
+import hu.mapro.mapping.MainActor.GpsTrackUploaded
 import hu.mapro.mapping.pages.Page
 import upickle.Js
 import upickle.default._
@@ -68,6 +71,10 @@ object App extends MainServerModule with Directives {
           entity(as[Multipart.FormData]) { formData =>
             complete {
               println("uloaded")
+              formData.parts
+                .mapAsync(1)( _.entity.dataBytes.runFold(ByteString.empty)(_ ++ _) )
+                .map( bytes => GpsTrackUploaded(bytes.toArray) )
+                .runWith(Sink.actorRef(webservice.theClients.mainActor, null))
               ""
             }
           }

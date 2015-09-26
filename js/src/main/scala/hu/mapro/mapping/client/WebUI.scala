@@ -7,6 +7,7 @@ import com.github.sjsf.leaflet.contextmenu.Implicits._
 import com.github.sjsf.leaflet.contextmenu.{MixinItemOptions, MixinOptions}
 import com.github.sjsf.leaflet.draw._
 import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
+import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping._
 import org.querki.jsext.JSOptionBuilder._
 import org.scalajs.dom
@@ -51,9 +52,6 @@ class WebUI(store: Store) extends UI {
       "map",
       LMapOptions
       .contextmenu(true)
-//        .contextmenuItems(
-////          ItemOptions.text("Reload Tracks")
-//        )
       ._result
     ).setView(LLatLng(38.723582, -9.166328), 14.0)
     val osmLayer = LTileLayer(
@@ -71,6 +69,24 @@ class WebUI(store: Store) extends UI {
       .contextmenu(true)
       .contextmenuInheritItems(false)
       .contextmenuItems(
+        MixinItemOptions
+          .text("Generate IMG")
+          .callback {
+          (_:LLatLng, _:LPoint, _:LPoint) =>
+            val poss: Seq[Position] = p.getLatLngs().toSeq.map(ll => Position(ll.lat, ll.lng))
+            println(poss)
+            Ajaxer[Api].generateImg(poss).call().foreach { tracks =>
+              LMultiPolyline(
+                (tracks map { track =>
+                  (track map { pos =>
+                    LLatLng(pos.lat, pos.lon)
+                  }).toJSArray
+                }).toJSArray,
+                LPolylineOptions.color("red")._result
+              ).addTo(map)
+            }
+            ()
+        },
         MixinItemOptions
           .text("Generate IMG")
           .callback {
@@ -199,6 +215,7 @@ class WebUI(store: Store) extends UI {
             )
           }
         case Tick => println("tick")
+        case _ =>
       }
     }
 

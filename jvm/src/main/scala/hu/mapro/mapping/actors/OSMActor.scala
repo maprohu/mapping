@@ -6,7 +6,7 @@ import akka.actor.{Stash, Actor}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import com.mongodb.{BasicDBList, DBObject}
+import com.mongodb.{casbah, BasicDBList, DBObject}
 import com.mongodb.casbah.Imports._
 import hu.mapro.mapping.actors.MainActor._
 import hu.mapro.mapping.{Geo, Coordinates}
@@ -30,11 +30,12 @@ class OSMActor extends Actor {
   import OSMActor._
 
   // FIXME use reactive mongo api
-  val mongoUri = Properties.envOrElse("MONGOLAB_URI", "mongodb://localhost")
+  val mongoUri = Properties.envOrElse("MONGOLAB_URI", "mongodb://localhost/mapping")
 
-  val mongoClient = MongoClient(MongoClientURI(mongoUri))
+  private val mongoClientURI: casbah.MongoClientURI = MongoClientURI(mongoUri)
+  val mongoClient = MongoClient(mongoClientURI)
 
-  val db = mongoClient("mapping")
+  val db = mongoClient(mongoClientURI.database.get)
 
   val coll = db("osm")
 

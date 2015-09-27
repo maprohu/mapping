@@ -31,47 +31,61 @@ import org.scalajs.jquery._
  */
 class WebUI(store: Store) extends UI {
   override def show: Unit = {
-    val body = dom.document.body
-    Html
-      .generate(
-        Seq(
-          new GpsTracksTab,
-          Tab(
-            id = "database",
-            icon = Seq(
-              i(cls := "fa fa-database")
-            ),
-            panel = Seq(
-            )
+    new WebUIDom(store)
+  }
+}
+
+class WebUIDom(store: Store) {
+  val body = dom.document.body
+
+  val html = Html
+    .generate(
+      Seq(
+        new GpsTracksTab,
+        Tab(
+          id = "database",
+          icon = Seq(
+            i(cls := "fa fa-database")
+          ),
+          panel = Seq(
           )
         )
       )
-      .foreach( node => body.appendChild(node.render) )
+    )
 
-    val map = LMap(
-      "map",
-      LMapOptions
-      .contextmenu(true)
-      ._result
-    ).setView(LLatLng(38.723582, -9.166328), 14.0)
-    val osmLayer = LTileLayer(
-      "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-      LTileLayerOptions.maxZoom(19)._result
-    ).addTo(map)
+  html.foreach(node => body.appendChild(node.render))
 
-    val layers = LControls.layers()
-    layers.addTo(map)
-    layers.addBaseLayer(osmLayer, "OSM")
+  val map = LMap(
+    "map",
+    LMapOptions
+    .contextmenu(true)
+    ._result
+  ).setView(LLatLng(38.723582, -9.166328), 14.0)
+  val osmLayer = LTileLayer(
+    "http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    LTileLayerOptions.maxZoom(19)._result
+  ).addTo(map)
 
-    LControlSidebar("sidebar").addTo(map)
+  val layers = LControls.layers()
+  layers.addTo(map)
+  layers.addBaseLayer(osmLayer, "OSM")
 
-    val featureOptions = (p: LPolygon) => MixinOptions
-      .contextmenu(true)
-      .contextmenuInheritItems(false)
-      .contextmenuItems(
-        MixinItemOptions
-          .text("Generate IMG")
-          .callback {
+  LControlSidebar("sidebar").addTo(map)
+
+  val featureOptions = (p: LPolygon) => MixinOptions
+    .contextmenu(true)
+    .contextmenuInheritItems(false)
+    .contextmenuItems(
+      MixinItemOptions
+        .text("Fetch OSM Cycleways")
+        .callback { (_:LLatLng, _:LPoint, _:LPoint) =>
+          val poss: Seq[Coordinates] = p.getLatLngs().toSeq.map(ll => Coordinates(ll.lat, ll.lng))
+          toServer(FetchCycleways(poss))
+        }
+      ,
+      MixinItemOptions
+        .text("Generate IMG")
+        .callback {
           (_:LLatLng, _:LPoint, _:LPoint) =>
             val poss: Seq[Position] = p.getLatLngs().toSeq.map(ll => Position(ll.lat, ll.lng))
             println(poss)
@@ -86,104 +100,86 @@ class WebUI(store: Store) extends UI {
               ).addTo(map)
             }
             ()
-        },
-        MixinItemOptions
-          .text("Generate IMG")
-          .callback {
-            (_:LLatLng, _:LPoint, _:LPoint) =>
-              val poss: Seq[Position] = p.getLatLngs().toSeq.map(ll => Position(ll.lat, ll.lng))
-              println(poss)
-              Ajaxer[Api].generateImg(poss).call().foreach { tracks =>
-                LMultiPolyline(
-                  (tracks map { track =>
-                    (track map { pos =>
-                      LLatLng(pos.lat, pos.lon)
-                    }).toJSArray
-                  }).toJSArray,
-                  LPolylineOptions.color("red")._result
-                ).addTo(map)
-              }
-              ()
-          }
-      )
-      ._result
-
-    val drawLayer = LFeatureGroup()
-    drawLayer.addTo(map)
-    layers.addOverlay(drawLayer, "Drawings")
-    for {
-      drawings <- store.loadDrawings
-      poly <- drawings
-    } {
-      val p = LPolygon(
-        poly.map { pos : Position => LLatLng(pos.lat, pos.lon) }.toJSArray
-      )
-      p.bindContextMenu(featureOptions(p))
-      drawLayer.addLayer(p)
-    }
-
-    val drawControl = new LControlDraw(
-      LControlDrawOptions
-        .draw(
-          DrawOptions
-            .circle(false)
-            .marker(false)
-            .polyline(false)
-            .rectangle(false)
-        )
-        .edit(EditOptions.featureGroup(drawLayer))
-        ._result
-    )
-    drawControl.addTo(map)
-
-    val save = () => {
-      store.saveDrawings(
-        drawLayer.getLayers().toSeq.map {
-          layer =>
-            layer.asInstanceOf[LPolygon].getLatLngs().toSeq.map {
-              ll => Position(ll.lat, ll.lng)
-            }
         }
+    )
+    ._result
+
+  val drawLayer = LFeatureGroup()
+  drawLayer.addTo(map)
+  layers.addOverlay(drawLayer, "Drawings")
+  for {
+    drawings <- store.loadDrawings
+    poly <- drawings
+  } {
+    val p = LPolygon(
+      poly.map { pos : Position => LLatLng(pos.lat, pos.lon) }.toJSArray
+    )
+    p.bindContextMenu(featureOptions(p))
+    drawLayer.addLayer(p)
+  }
+
+  val drawControl = new LControlDraw(
+    LControlDrawOptions
+      .draw(
+        DrawOptions
+          .circle(false)
+          .marker(false)
+          .polyline(false)
+          .rectangle(false)
       )
-    }
-    map.on("draw:created", {
-      e:LDrawCreatedEvent =>
-        drawLayer.addLayer(e.layer)
-        e.layer.bindContextMenu(featureOptions(e.layer.asInstanceOf[LPolygon]))
-        save()
-    })
+      .edit(EditOptions.featureGroup(drawLayer))
+      ._result
+  )
+  drawControl.addTo(map)
 
-    map.on("draw:edited", {
-      e:LDrawEditedEvent =>
-        save()
-    })
+  val save = () => {
+    store.saveDrawings(
+      drawLayer.getLayers().toSeq.map {
+        layer =>
+          layer.asInstanceOf[LPolygon].getLatLngs().toSeq.map {
+            ll => Position(ll.lat, ll.lng)
+          }
+      }
+    )
+  }
+  map.on("draw:created", {
+    e:LDrawCreatedEvent =>
+      drawLayer.addLayer(e.layer)
+      e.layer.bindContextMenu(featureOptions(e.layer.asInstanceOf[LPolygon]))
+      save()
+  })
 
-    map.on("draw:deleted", {
-      e:LDrawDeletedEvent =>
-        save()
-    })
+  map.on("draw:edited", {
+    e:LDrawEditedEvent =>
+      save()
+  })
 
-    val cyclewaysLayer = LMultiPolyline(
-      js.Array(),
-      LPolylineOptions.color("yellow")._result
-    ).addTo(map)
-    layers.addOverlay(cyclewaysLayer, "Cycleways")
+  map.on("draw:deleted", {
+    e:LDrawDeletedEvent =>
+      save()
+  })
 
-    for {
-      cycleways <- Ajaxer[Api].cycleways().call()
-    } {
-      cyclewaysLayer.setLatLngs(
-        cycleways.map { track =>
-          track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
-        }.toJSArray
-      )
-    }
+  val cyclewaysLayer = LMultiPolyline(
+    js.Array(),
+    LPolylineOptions.color("Indigo")._result
+  ).addTo(map)
+  layers.addOverlay(cyclewaysLayer, "Cycleways")
 
-    val gpsTracksLayer = LMultiPolyline(
-      js.Array(),
-      LPolylineOptions.color("pink")._result
-    ).addTo(map)
-    layers.addOverlay(gpsTracksLayer, "GPS Tracks")
+//  for {
+//    cycleways <- Ajaxer[Api].cycleways().call()
+//  } {
+//    cyclewaysLayer.setLatLngs(
+//      cycleways.map { track =>
+//        track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
+//      }.toJSArray
+//    )
+//  }
+
+  val gpsTracksLayer = LMultiPolyline(
+    js.Array(),
+    LPolylineOptions.color("pink")._result
+  ).addTo(map)
+  layers.addOverlay(gpsTracksLayer, "GPS Tracks")
 
 //    async {
 //      val tracks = await { Ajaxer[Api].tracks().call() }
@@ -195,30 +191,38 @@ class WebUI(store: Store) extends UI {
 //    }
 
 
-    val socket = new WebSocket(getWebsocketUri(dom.document))
+  val socket = new WebSocket(getWebsocketUri(dom.document))
 
-    socket.onopen = { (event:Event) =>
-      println("opened")
-      socket.send("hello ws")
-      event
+  socket.onopen = { (event:Event) =>
+    println("opened")
+    event
+  }
+  socket.onmessage = { (event:MessageEvent) =>
+    val msg = pickle.serverToClient(event.data.toString)
+
+    msg match {
+      case GpsTracksAdded(tracks) =>
+        for (track <- tracks) {
+          gpsTracksLayer.addLayer(
+            Util
+              .toPolyLine(track)
+              .setStyle(LPolylineOptions.color("red")._result)
+          )
+        }
+      case CyclewaysChanged(cycleways) =>
+        cyclewaysLayer.setLatLngs(
+          cycleways.map { track =>
+            track.map(p => LLatLng(p.lat, p.lon)).toJSArray
+          }.toJSArray
+        )
+
+      case Tick => println("tick")
+      case _ =>
     }
-    socket.onmessage = { (event:MessageEvent) =>
-      val msg = pickle.serverToClient(event.data.toString)
+  }
 
-      msg match {
-        case GpsTracksAdded(tracks) =>
-          for (track <- tracks) {
-            gpsTracksLayer.addLayer(
-              Util
-                .toPolyLine(track)
-                .setStyle(LPolylineOptions.color("red")._result)
-            )
-          }
-        case Tick => println("tick")
-        case _ =>
-      }
-    }
-
+  def toServer(msg: ClientToServerMessage): Unit = {
+    socket.send(pickle.clientToServer(msg))
   }
 
   def getWebsocketUri(document: Document): String = {

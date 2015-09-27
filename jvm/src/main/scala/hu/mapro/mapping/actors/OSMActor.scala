@@ -4,27 +4,23 @@ import java.net.URLEncoder
 
 import akka.actor.{Stash, Actor}
 import akka.http.scaladsl.Http
-import akka.http.scaladsl.Http.OutgoingConnection
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import akka.stream.scaladsl.{Flow, Sink, Source}
-import com.mongodb.DBObject
-import com.mongodb.casbah.{MongoClient, MongoClientURI}
+import com.mongodb.{BasicDBList, DBObject}
+import com.mongodb.casbah.Imports._
+import hu.mapro.mapping.actors.MainActor._
 import hu.mapro.mapping.{Geo, Coordinates}
-import hu.mapro.mapping.MainActor.{ToAllClients, NewClient}
 import hu.mapro.mapping.Messaging._
 import rapture.json.Json
 import rapture.json.jsonBackends.json4s._
 
 import scala.concurrent.Future
-import scala.util.parsing.json.JSON
 import scala.util.{Random, Properties}
-import com.novus.salat._
-import com.novus.salat.annotations._
-import com.novus.salat.global._
+import com.mongodb.casbah.commons.Implicits._
 import akka.stream.ActorMaterializer
 
-import scala.xml.XML
+import akka.pattern._
+import scala.collection.JavaConversions._
 
 /**
  * Created by marci on 26-09-2015.
@@ -33,6 +29,7 @@ import scala.xml.XML
 class OSMActor extends Actor {
   import OSMActor._
 
+  // FIXME use reactive mongo api
   val mongoUri = Properties.envOrElse("MONGOLAB_URI", "mongodb://localhost")
 
   val mongoClient = MongoClient(MongoClientURI(mongoUri))
@@ -42,28 +39,56 @@ class OSMActor extends Actor {
   val coll = db("osm")
 
 
-  object Ids extends Enumeration {
-    val cycleways = Value
-  }
 
-  case class CyclewaysDB(cycleways: Cycleways, _id: String = Ids.cycleways.toString)
 
 
   def receive = {
     val result = coll.findOneByID(Ids.cycleways.toString)
     result
-      .map { dbo:DBObject =>
-        working(grater[CyclewaysDB].asObject(dbo).cycleways)
+      .filter(_.containsField("data"))
+      .map { cycleways =>
+        cycleways.get("data").asInstanceOf[BasicDBList].toSeq.map { cycleway =>
+          cycleway.asInstanceOf[BasicDBList].toSeq.map { coordinates =>
+            val c = coordinates.asInstanceOf[DBObject]
+            Coordinates(
+              c.get("lat").asInstanceOf[Double],
+              c.get("lon").asInstanceOf[Double]
+            )
+          }
+        }
       }
+      .map(working(_))
       .getOrElse(
         working()
       )
   }
 
   def withCommon(custom:Receive) : Receive = custom.orElse({
-    case LoadCycleways(polygon) =>
-      // ...
+    case FetchCycleways(polygon) =>
+      fetchCyclewaysOSM(polygon)
+        .map(CyclewaysLoaded(_))
+        .pipeTo(self)
     case CyclewaysLoaded(cycleways) =>
+      coll.update(
+        MongoDBObject("_id" -> Ids.cycleways.toString),
+        $set("data" -> MongoDBList(
+          cycleways
+            .map({ cycleway =>
+              MongoDBList(
+                cycleway
+                  .map({ coordinates =>
+                    MongoDBObject(
+                      "lat" -> coordinates.lat,
+                      "lon" -> coordinates.lon
+                    )
+                  })
+                  :_*
+              )
+            })
+            :_*
+        )),
+        upsert = true
+      )
       context.parent ! ToAllClients(CyclewaysChanged(cycleways))
       context.become(working(cycleways))
   })
@@ -83,17 +108,33 @@ class OSMActor extends Actor {
     "http://overpass-api.de/api/interpreter"
   )
 
+//  def cyclewaysRequestPayload(polygon: Polygon) = {
+//    val bounds = Geo.bounds(polygon)
+//    <osm-script output="json">
+//      <query type="way">
+//        <has-kv k="highway" v="cycleway"/>
+//        <bbox-query
+//        s={bounds.minlat.toString}
+//        w={bounds.minlon.toString}
+//        n={bounds.maxlat.toString}
+//        e={bounds.maxlon.toString}
+//        />
+//      </query>
+//      <union>
+//        <item />
+//        <recurse type="way-node"/>
+//      </union>
+//      <print mode="skeleton"/>
+//    </osm-script>
+//  }
   def cyclewaysRequestPayload(polygon: Polygon) = {
-    val bounds = Geo.bounds(polygon)
     <osm-script output="json">
+      <query type="node">
+        <polygon-query bounds={polygon.map(c => s"${c.lat} ${c.lon}").mkString(" ")}/>
+      </query>
       <query type="way">
+        <recurse type="node-way"/>
         <has-kv k="highway" v="cycleway"/>
-        <bbox-query
-          s={bounds.minlat.toString}
-          w={bounds.minlon.toString}
-          n={bounds.maxlat.toString}
-          e={bounds.maxlon.toString}
-        />
       </query>
       <union>
         <item />
@@ -108,24 +149,29 @@ class OSMActor extends Actor {
   implicit val dispatcher = context.dispatcher
 
   def fetchCyclewaysOSM(polygon: Seq[Coordinates]) : Future[Cycleways] = {
+    val osmQuery: String = cyclewaysRequestPayload(polygon).toString
     Http().singleRequest(
       HttpRequest(
         uri = overpassServers(Random.nextInt(overpassServers.size)),
         method = HttpMethods.POST,
         entity = HttpEntity(
           ContentType(MediaTypes.`application/x-www-form-urlencoded`),
-          s"data=${URLEncoder.encode(cyclewaysRequestPayload(polygon).toString, HttpCharsets.`UTF-8`.value)}"
+          s"data=${URLEncoder.encode(osmQuery, HttpCharsets.`UTF-8`.value)}"
         )
       )
     ).flatMap { res =>
       Unmarshaller.byteStringUnmarshaller.mapWithCharset({ (data, charset) =>
-        val doc = Json.parse(data.decodeString(charset.value))
+        val jsonString:String = data.decodeString(charset.value)
+        val doc = Json.parse(jsonString)
 
-        // FIXME split elements to node and way, knowing that they come in this order
-        val nodeMap : Map[Long, Coordinates] =
+        // assuming nodes are followed by ways
+        val (nodes, ways) =
           doc
             .elements.as[Seq[Json]]
-            .filter(_.`type` == "node")
+            .span(_.`type`.as[String] == "node")
+
+        val nodeMap : Map[Long, Coordinates] =
+          nodes
             .map({ node =>
               node.id.as[Long] ->
                 Coordinates(
@@ -134,9 +180,7 @@ class OSMActor extends Actor {
                 )
             })(collection.breakOut)
 
-        doc
-          .elements.as[Seq[Json]]
-          .filter(_.`type` == "way")
+        ways
           .map { way =>
             way.nodes.as[Seq[Long]].map(nodeMap)
           }
@@ -151,4 +195,10 @@ class OSMActor extends Actor {
 object OSMActor {
   case class CyclewaysLoaded(cycleways: Cycleways)
 
+  object Ids extends Enumeration {
+    val cycleways = Value
+  }
+
 }
+
+case class CyclewaysDB(_id: String, cycleways: Cycleways)

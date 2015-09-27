@@ -8,7 +8,8 @@ import akka.http.scaladsl.server.Directives
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.stage._
-import hu.mapro.mapping.MainActor.ToAllClients
+import hu.mapro.mapping.Messaging._
+import hu.mapro.mapping.actors.MainActor.ToAllClients
 
 import scala.concurrent.duration._
 
@@ -27,7 +28,8 @@ class Webservice(implicit fm: Materializer, system: ActorSystem) extends Directi
   def websocketClientFlow(): Flow[Message, Message, Unit] =
     Flow[Message]
       .collect {
-        case TextMessage.Strict(msg) ⇒ pickle.clientToServer(msg) // unpack incoming WS text messages...
+        case TextMessage.Strict(msg) ⇒
+          pickle.clientToServer(msg) // unpack incoming WS text messages...
         // This will lose (ignore) messages not received in one chunk (which is
         // unlikely because chat messages are small) but absolutely possible
         // FIXME: We need to handle TextMessage.Streamed as well.

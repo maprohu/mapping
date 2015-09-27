@@ -12,7 +12,7 @@ import akka.stream.scaladsl.{Sink, Source, Flow}
 import akka.util.ByteString
 import com.google.common.io.ByteSource
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
-import hu.mapro.mapping.MainActor.GpsTrackUploaded
+import hu.mapro.mapping.actors.MainActor.GpsTrackUploaded
 import hu.mapro.mapping.pages.Page
 import upickle.Js
 import upickle.default._

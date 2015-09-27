@@ -33,7 +33,7 @@ object Messaging {
 
   sealed trait ClientToServerMessage
   case class DeleteTrack() extends ClientToServerMessage
-  case class LoadCycleways(polygon: Polygon) extends ClientToServerMessage
+  case class FetchCycleways(polygon: Polygon) extends ClientToServerMessage
 }
 
 

@@ -9,6 +9,9 @@ import com.github.sjsf.leaflet.draw._
 import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
 import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping._
+import monifu.reactive.Ack
+import monifu.reactive.Ack.Continue
+import monifu.reactive.subjects.ReplaySubject
 import org.querki.jsext.JSOptionBuilder._
 import org.scalajs.dom
 import org.scalajs.dom.raw.{MessageEvent, WebSocket, FormData}
@@ -16,7 +19,8 @@ import org.scalajs.dom.{Document, Element, Event}
 import rx._
 
 import scala.async.Async._
-import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
+import scala.concurrent.Future
+import monifu.concurrent.Implicits.globalScheduler
 import scala.scalajs.js
 import scala.scalajs.js._
 import scala.scalajs.js.Any._
@@ -38,10 +42,11 @@ class WebUI(store: Store) extends UI {
 class WebUIDom(store: Store) {
   val body = dom.document.body
 
+  val gpsTracksTab = new GpsTracksTab
   val html = Html
     .generate(
       Seq(
-        new GpsTracksTab,
+        gpsTracksTab,
         Tab(
           id = "database",
           icon = Seq(
@@ -201,7 +206,8 @@ class WebUIDom(store: Store) {
     val msg = pickle.serverToClient(event.data.toString)
 
     msg match {
-      case GpsTracksAdded(tracks) =>
+      case m @ GpsTracksAdded(tracks) =>
+        gpsTracksTab.serverToClient.onNext(m)
         for (track <- tracks) {
           gpsTracksLayer.addLayer(
             Util
@@ -255,6 +261,7 @@ class GpsTracksTab extends TabLike {
     i(cls := "fa fa-location-arrow")
   )
   val selectedFile = Var("")
+  val serverToClient = ReplaySubject[ServerToClientMessage]()
   val panel = Seq(
     h2("GPS Tracks"),
     form(
@@ -286,6 +293,23 @@ class GpsTracksTab extends TabLike {
 
 
           }
+        },
+        ul(
+        ).custom { ul =>
+
+          serverToClient.subscribe { msg =>
+            msg match {
+              case GpsTracksAdded(tracks) =>
+                for (track <- tracks) {
+                  ul.appendChild(
+                    li(track.positions.head.timestamp.toString).render
+                  )
+                }
+              case _ =>
+            }
+            Future(Continue)
+          }
+
         }
       )
     ).custom { form =>

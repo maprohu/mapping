@@ -22,4 +22,5 @@ object Deps {
     "com.propensive" %% "rapture-json-json4s" % "2.0.0-M2-SNAPSHOT",
     "org.reactivemongo" %% "reactivemongo" % "0.11.7"
   )
+
 }

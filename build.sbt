@@ -35,7 +35,8 @@ lazy val app = crossProject.in(file("."))
   .jvmSettings(
     resolvers ++= Seq(
       "cwatch-ext-release" at "http://cwatch.org/repo/ext-release-local" ,
-      Resolver.sonatypeRepo("snapshots")
+      Resolver.sonatypeRepo("snapshots"),
+      Resolver.typesafeRepo("releases")
     ),
     //credentials += Credentials(Path.userHome / ".ivy2" / "cwatch.credentials"),
     libraryDependencies ++= Deps.serverDependencies,

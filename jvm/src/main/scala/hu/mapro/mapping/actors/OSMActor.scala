@@ -98,25 +98,6 @@ class OSMActor extends Actor with Stash {
     "http://overpass-api.de/api/interpreter"
   )
 
-//  def cyclewaysRequestPayload(polygon: Polygon) = {
-//    val bounds = Geo.bounds(polygon)
-//    <osm-script output="json">
-//      <query type="way">
-//        <has-kv k="highway" v="cycleway"/>
-//        <bbox-query
-//        s={bounds.minlat.toString}
-//        w={bounds.minlon.toString}
-//        n={bounds.maxlat.toString}
-//        e={bounds.maxlon.toString}
-//        />
-//      </query>
-//      <union>
-//        <item />
-//        <recurse type="way-node"/>
-//      </union>
-//      <print mode="skeleton"/>
-//    </osm-script>
-//  }
   def cyclewaysRequestPayload(polygon: Polygon) = {
     <osm-script output="json">
       <query type="node">

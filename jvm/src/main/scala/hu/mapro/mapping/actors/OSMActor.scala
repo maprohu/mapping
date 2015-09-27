@@ -1,22 +1,24 @@
 package hu.mapro.mapping.actors
 
 import java.net.URLEncoder
+import play.api.libs.iteratee.Iteratee
+import reactivemongo.api._
+import reactivemongo.bson._
 
 import akka.actor.{Stash, Actor}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import com.mongodb.{casbah, BasicDBList, DBObject}
-import com.mongodb.casbah.Imports._
 import hu.mapro.mapping.actors.MainActor._
 import hu.mapro.mapping.{Geo, Coordinates}
 import hu.mapro.mapping.Messaging._
 import rapture.json.Json
 import rapture.json.jsonBackends.json4s._
+import reactivemongo.api.collections.bson.BSONCollection
+import reactivemongo.bson.{BSONHandler, BSONDocument}
 
 import scala.concurrent.Future
 import scala.util.{Random, Properties}
-import com.mongodb.casbah.commons.Implicits._
 import akka.stream.ActorMaterializer
 
 import akka.pattern._
@@ -26,42 +28,44 @@ import scala.collection.JavaConversions._
  * Created by marci on 26-09-2015.
  */
 
-class OSMActor extends Actor {
+class OSMActor extends Actor with Stash {
   import OSMActor._
+  import context.dispatcher
 
-  // FIXME use reactive mongo api
-  val mongoUri = Properties.envOrElse("MONGOLAB_URI", "mongodb://localhost/mapping")
+  implicit val coordinatesHandler: BSONHandler[BSONDocument, Coordinates] =
+    Macros.handler[Coordinates]
+//  implicit val cyclewaysDBHandler: BSONHandler[BSONDocument, CyclewaysDB] =
+//    Macros.handler[CyclewaysDB]
+  implicit val cyclewaysDBReader = Macros.reader[CyclewaysDB]
+  implicit val cyclewaysDBWriter = Macros.writer[CyclewaysDB]
 
-  private val mongoClientURI: casbah.MongoClientURI = MongoClientURI(mongoUri)
-  val mongoClient = MongoClient(mongoClientURI)
+  val coll:BSONCollection = {
+    val mongoUri = Properties.envOrElse("MONGOLAB_URI", "mongodb://localhost/mapping")
+    val parsedUri = MongoConnection.parseURI(mongoUri).get
+    val driver = new MongoDriver
+    val connection = driver.connection(parsedUri)
+    val db = connection(parsedUri.db.get)
+    db.collection("osm")
+  }
 
-  val db = mongoClient(mongoClientURI.database.get)
-
-  val coll = db("osm")
-
-
-
-
+  coll
+    .find(
+      BSONDocument("_id" -> Ids.cycleways.toString)
+    )
+    .cursor[CyclewaysDB]()
+    .headOption
+    .map(_.map(cwdb => CyclewaysLoaded(cwdb.cycleways)).getOrElse(CyclewaysNotFound))
+    .recover {case _ => CyclewaysNotFound}
+    .pipeTo(self)
 
   def receive = {
-    val result = coll.findOneByID(Ids.cycleways.toString)
-    result
-      .filter(_.containsField("data"))
-      .map { cycleways =>
-        cycleways.get("data").asInstanceOf[BasicDBList].toSeq.map { cycleway =>
-          cycleway.asInstanceOf[BasicDBList].toSeq.map { coordinates =>
-            val c = coordinates.asInstanceOf[DBObject]
-            Coordinates(
-              c.get("lat").asInstanceOf[Double],
-              c.get("lon").asInstanceOf[Double]
-            )
-          }
-        }
-      }
-      .map(working(_))
-      .getOrElse(
-        working()
-      )
+    case CyclewaysNotFound =>
+      unstashAll()
+      context.become(working())
+    case CyclewaysLoaded(cycleways) =>
+      unstashAll()
+      context.become(working(cycleways))
+    case _ => stash()
   }
 
   def withCommon(custom:Receive) : Receive = custom.orElse({
@@ -71,23 +75,8 @@ class OSMActor extends Actor {
         .pipeTo(self)
     case CyclewaysLoaded(cycleways) =>
       coll.update(
-        MongoDBObject("_id" -> Ids.cycleways.toString),
-        $set("data" -> MongoDBList(
-          cycleways
-            .map({ cycleway =>
-              MongoDBList(
-                cycleway
-                  .map({ coordinates =>
-                    MongoDBObject(
-                      "lat" -> coordinates.lat,
-                      "lon" -> coordinates.lon
-                    )
-                  })
-                  :_*
-              )
-            })
-            :_*
-        )),
+        BSONDocument("_id" -> Ids.cycleways.toString),
+        CyclewaysDB(cycleways),
         upsert = true
       )
       context.parent ! ToAllClients(CyclewaysChanged(cycleways))
@@ -147,7 +136,6 @@ class OSMActor extends Actor {
 
   implicit val actorSystem = context.system
   implicit val materializer = ActorMaterializer()
-  implicit val dispatcher = context.dispatcher
 
   def fetchCyclewaysOSM(polygon: Seq[Coordinates]) : Future[Cycleways] = {
     val osmQuery: String = cyclewaysRequestPayload(polygon).toString
@@ -194,6 +182,7 @@ class OSMActor extends Actor {
 }
 
 object OSMActor {
+  object CyclewaysNotFound
   case class CyclewaysLoaded(cycleways: Cycleways)
 
   object Ids extends Enumeration {
@@ -202,4 +191,4 @@ object OSMActor {
 
 }
 
-case class CyclewaysDB(_id: String, cycleways: Cycleways)
+case class CyclewaysDB(cycleways: Cycleways)

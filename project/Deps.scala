@@ -18,8 +18,8 @@ object Deps {
     "com.google.guava" % "guava" % "18.0",
     "org.slf4j" % "slf4j-simple" % "1.6.4",
     "com.softwaremill" %% "akka-http-session" % "0.1.4",
-    "org.mongodb" %% "casbah" % "2.8.2",
     "com.propensive" %% "rapture-json" % "2.0.0-M2-SNAPSHOT",
-    "com.propensive" %% "rapture-json-json4s" % "2.0.0-M2-SNAPSHOT"
+    "com.propensive" %% "rapture-json-json4s" % "2.0.0-M2-SNAPSHOT",
+    "org.reactivemongo" %% "reactivemongo" % "0.11.7"
   )
 }

@@ -210,6 +210,7 @@ class WebUIDom(store: Store) {
           )
         }
       case CyclewaysChanged(cycleways) =>
+        println("boo")
         cyclewaysLayer.setLatLngs(
           cycleways.map { track =>
             track.map(p => LLatLng(p.lat, p.lon)).toJSArray

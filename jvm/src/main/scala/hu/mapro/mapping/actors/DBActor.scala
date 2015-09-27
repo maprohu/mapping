@@ -32,6 +32,7 @@ class DBActor extends Actor with Stash {
     case Deps(db, tracks) =>
       unstashAll()
       context.become(working(db, tracks))
+    case _ => stash()
   }
 
   def working(db: DB, gpsTracks: Seq[Track]) : Receive = {

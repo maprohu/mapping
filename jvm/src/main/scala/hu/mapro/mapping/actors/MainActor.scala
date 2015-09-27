@@ -11,6 +11,7 @@ object MainActor {
   case class ToClient(client: ActorRef, msg: ServerToClientMessage)
   case class ToAllClients(msg: ServerToClientMessage)
   case class GpsTrackUploaded(data: Array[Byte])
+  object UploadComplete
 
 
   case class ClientInitialized(client: ActorRef)

@@ -62,19 +62,13 @@ lazy val app = crossProject.in(file("."))
     persistLauncher in Compile := true,
     persistLauncher in Test := false,
 
-    resolvers ++= Seq(
-      DefaultMavenRepository,
-      "maven central" at "http://central.maven.org/maven2/"
-    ),
-
-
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-dom" % "0.8.0",
       "com.softwaremill.macwire" %% "macros" % "2.0.0",
       "org.scala-lang.modules" %% "scala-async" % "0.9.5",
       "org.webjars" % "font-awesome" % "4.4.0",
       "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-      "com.lihaoyi" %%% "scalarx" % "0.2.8",
+      //"com.lihaoyi" %%% "scalarx" % "0.2.8",
       "org.monifu" %%% "monifu" % "1.0-RC3"
     ),
     jsDependencies ++= Seq(

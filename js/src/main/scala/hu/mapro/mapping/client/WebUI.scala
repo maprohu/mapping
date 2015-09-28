@@ -8,6 +8,7 @@ import com.github.sjsf.leaflet.contextmenu.{MixinItemOptions, MixinOptions}
 import com.github.sjsf.leaflet.draw._
 import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
 import hu.mapro.mapping._
+import hu.mapro.mapping.client.ui.GpsTracksUI
 import monifu.reactive.Ack
 import monifu.reactive.Ack.Continue
 import monifu.reactive.subjects.ReplaySubject
@@ -44,7 +45,12 @@ class WebUI(store: Store) extends UI {
 class WebUIDom(store: Store) {
   val body = dom.document.body
 
-  val gpsTracksTab = new GpsTracksTab
+  val gpsTracksLayer = LMultiPolyline(
+    js.Array(),
+    LPolylineOptions.color("pink")._result
+  )
+
+  val gpsTracksTab = new GpsTracksUI(gpsTracksLayer)
   val html = Html
     .generate(
       Seq(
@@ -171,31 +177,8 @@ class WebUIDom(store: Store) {
   ).addTo(map)
   layers.addOverlay(cyclewaysLayer, "Cycleways")
 
-//  for {
-//    cycleways <- Ajaxer[Api].cycleways().call()
-//  } {
-//    cyclewaysLayer.setLatLngs(
-//      cycleways.map { track =>
-//        track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
-//      }.toJSArray
-//    )
-//  }
-
-  val gpsTracksLayer = LMultiPolyline(
-    js.Array(),
-    LPolylineOptions.color("pink")._result
-  ).addTo(map)
+  gpsTracksLayer.addTo(map)
   layers.addOverlay(gpsTracksLayer, "GPS Tracks")
-
-//    async {
-//      val tracks = await { Ajaxer[Api].tracks().call() }
-//      tracks.zipWithIndex.foreach { case (track, idx) =>
-//        val layer = LPolyline(
-//          track.positions.map(p => LLatLng(p.lat, p.lon)).toJSArray
-//        ).addTo(map)
-//        layers.addOverlay(layer, s"Track ${idx+1}")
-//    }
-
 
   val socket = new WebSocket(getWebsocketUri(dom.document))
 
@@ -203,20 +186,12 @@ class WebUIDom(store: Store) {
     println("websocket opened")
   }
   socket.onmessage = { (event:MessageEvent) =>
-    println(event.data.toString)
 
     val msg = pickle.serverToClient(event.data.toString)
 
     msg match {
       case m @ GpsTracksAdded(tracks) =>
         gpsTracksTab.serverToClient.onNext(m)
-        for (track <- tracks) {
-          gpsTracksLayer.addLayer(
-            Util
-              .toPolyLine(track)
-              .setStyle(LPolylineOptions.color("red")._result)
-          )
-        }
       case CyclewaysChanged(cycleways) =>
         cyclewaysLayer.setLatLngs(
           cycleways.map { track =>
@@ -260,74 +235,5 @@ object Util {
   )
 }
 
-import hu.mapro.mapping.client.Util._
-
-class GpsTracksTab extends TabLike {
-  val id = "gpsTracks"
-  val icon = Seq(
-    i(cls := "fa fa-location-arrow")
-  )
-  val selectedFile = Var("")
-  val serverToClient = ReplaySubject[ServerToClientMessage]()
-  val panel = Seq(
-    h2("GPS Tracks"),
-    form(
-      action := "upload/gps-track",
-      div(
-        cls := "form-group",
-        label("Upload"),
-        input(
-          `type` := "file"
-        ).custom { input =>
-          input.onchange = { _:Event =>
-            val formData = new FormData()
-            jQuery.each(input.files, { (key:js.Any, value:js.Any) =>
-              formData.append(key, value)
-              val s = (new js.Object).asInstanceOf[JQueryAjaxSettings]
-              s.url = "upload/gps-data"
-              s.`type` = "POST"
-              s.data = formData
-              s.cache = false
-              s.dataType = "json"
-              s.processData = false
-              s.contentType = false
-              jQuery.ajax(s)
-
-              notification("hello")
-
-              ().asInstanceOf[js.Any]
-            })
 
 
-          }
-        },
-        ul(
-        ).custom { ul =>
-
-          serverToClient.subscribe { msg =>
-            msg match {
-              case GpsTracksAdded(tracks) =>
-                for (track <- tracks) {
-                  ul.appendChild(
-                    li(track.positions.head.timestamp.toString).render
-                  )
-                }
-              case _ =>
-            }
-            Future(Continue)
-          }
-
-        }
-      )
-    ).custom { form =>
-      Obs(selectedFile) {
-        selectedFile() match {
-          case null | "" =>
-          case _ => form.submit()
-        }
-      }
-    }
-
-
-  )
-}

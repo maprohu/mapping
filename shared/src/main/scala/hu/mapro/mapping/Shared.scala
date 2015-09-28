@@ -31,7 +31,7 @@ object Messaging {
   sealed trait ServerToClientMessage
   object Tick extends ServerToClientMessage
   case class GpsTracksAdded(tracks: Seq[Track]) extends ServerToClientMessage
-  case class GpsTracksRemoved(tracks: Seq[Long]) extends ServerToClientMessage
+  case class GpsTracksRemoved(tracks: Seq[Int]) extends ServerToClientMessage
   case class CyclewaysChanged(cycleways: Cycleways) extends ServerToClientMessage
 
   sealed trait ClientToServerMessage

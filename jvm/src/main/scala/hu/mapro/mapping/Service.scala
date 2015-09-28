@@ -1,28 +1,10 @@
 package hu.mapro.mapping
 
-import java.awt.Polygon
 
-import akka.actor.Actor.Receive
-import akka.actor.{Props, ActorSystem}
-import akka.http.scaladsl._
-import akka.http.scaladsl.model._
-import akka.http.scaladsl.model.ws.{TextMessage, Message}
-import akka.stream.ActorMaterializer
-import akka.stream.actor.ActorPublisher
-import akka.stream.scaladsl.{Flow, Source, Sink}
-import com.google.common.io.ByteSource
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
-import hu.mapro.mapping.pages.Page
-import upickle.Js
-import upickle.default._
+import hu.mapro.mapping.Messaging.Cycleways
 import scala.concurrent.ExecutionContext.Implicits.global
-import scala.collection.JavaConversions._
 import scala.concurrent.Future
-import scala.util.Properties
-import scala.xml.{XML, PrettyPrinter}
-import slick.driver.PostgresDriver.api._
-import akka.http.scaladsl.server.Directives
-
 
 class Service(implicit db: DB) extends Api {
 
@@ -31,13 +13,13 @@ class Service(implicit db: DB) extends Api {
 
 
 
-  lazy val cws: Seq[Track] = MS.cycleways(
-    node => Position(
+  lazy val cws: Cycleways = MS.cycleways(
+    node => Coordinates(
       lat = (node \ "@lat").text.toDouble,
       lon = (node \ "@lon").text.toDouble
     )
   )(
-    (way, nodes) => Track(nodes)
+    (way, nodes) => nodes
   )
 
   override def cycleways() = Future {
@@ -48,8 +30,8 @@ class Service(implicit db: DB) extends Api {
 
   val GF = new GeometryFactory()
 
-  override def generateImg(bounds: Seq[Position]): Future[Seq[Seq[Position]]] = {
-    val polygon = GF.createPolygon(((bounds.last +: bounds) map {(pos:Position) => new Coordinate(pos.lat, pos.lon)}) .toArray)
+  override def generateImg(bounds: Messaging.Polygon): Future[Seq[Seq[Position]]] = {
+    val polygon = GF.createPolygon(((bounds.last +: bounds) map { pos => new Coordinate(pos.lat, pos.lon)}) .toArray)
 
     def isInside(p: Position) : Boolean = polygon.contains(GF.createPoint(new Coordinate(p.lat, p.lon)))
 

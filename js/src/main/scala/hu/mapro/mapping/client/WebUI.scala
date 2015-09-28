@@ -7,7 +7,6 @@ import com.github.sjsf.leaflet.contextmenu.Implicits._
 import com.github.sjsf.leaflet.contextmenu.{MixinItemOptions, MixinOptions}
 import com.github.sjsf.leaflet.draw._
 import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
-import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping._
 import monifu.reactive.Ack
 import monifu.reactive.Ack.Continue
@@ -15,7 +14,10 @@ import monifu.reactive.subjects.ReplaySubject
 import org.querki.jsext.JSOptionBuilder._
 import org.scalajs.dom
 import org.scalajs.dom.raw.{MessageEvent, WebSocket, FormData}
-import org.scalajs.dom.{Document, Element, Event}
+import org.scalajs.dom._
+import hu.mapro.mapping.Coordinates
+import hu.mapro.mapping.Messaging._
+import hu.mapro.mapping.Position
 import rx._
 
 import scala.async.Async._
@@ -92,8 +94,7 @@ class WebUIDom(store: Store) {
         .text("Generate IMG")
         .callback {
           (_:LLatLng, _:LPoint, _:LPoint) =>
-            val poss: Seq[Position] = p.getLatLngs().toSeq.map(ll => Position(ll.lat, ll.lng))
-            println(poss)
+            val poss: Seq[Coordinates] = p.getLatLngs().toSeq.map(ll => Coordinates(ll.lat, ll.lng))
             Ajaxer[Api].generateImg(poss).call().foreach { tracks =>
               LMultiPolyline(
                 (tracks map { track =>
@@ -117,7 +118,7 @@ class WebUIDom(store: Store) {
     poly <- drawings
   } {
     val p = LPolygon(
-      poly.map { pos : Position => LLatLng(pos.lat, pos.lon) }.toJSArray
+      poly.map { pos : Coordinates => LLatLng(pos.lat, pos.lon) }.toJSArray
     )
     p.bindContextMenu(featureOptions(p))
     drawLayer.addLayer(p)
@@ -142,7 +143,7 @@ class WebUIDom(store: Store) {
       drawLayer.getLayers().toSeq.map {
         layer =>
           layer.asInstanceOf[LPolygon].getLatLngs().toSeq.map {
-            ll => Position(ll.lat, ll.lng)
+            ll => Coordinates(ll.lat, ll.lng)
           }
       }
     )
@@ -199,10 +200,11 @@ class WebUIDom(store: Store) {
   val socket = new WebSocket(getWebsocketUri(dom.document))
 
   socket.onopen = { (event:Event) =>
-    println("opened")
-    event
+    println("websocket opened")
   }
   socket.onmessage = { (event:MessageEvent) =>
+    println(event.data.toString)
+
     val msg = pickle.serverToClient(event.data.toString)
 
     msg match {
@@ -216,7 +218,6 @@ class WebUIDom(store: Store) {
           )
         }
       case CyclewaysChanged(cycleways) =>
-        println("boo")
         cyclewaysLayer.setLatLngs(
           cycleways.map { track =>
             track.map(p => LLatLng(p.lat, p.lon)).toJSArray
@@ -224,8 +225,14 @@ class WebUIDom(store: Store) {
         )
 
       case Tick => println("tick")
-      case _ =>
+      case _ => println("wtf?")
     }
+  }
+  socket.onerror = { (event:ErrorEvent) =>
+    println(s"websocket error: $event")
+  }
+  socket.onclose = { (event:CloseEvent) =>
+    println(s"websocket closed: $event")
   }
 
   def toServer(msg: ClientToServerMessage): Unit = {

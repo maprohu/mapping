@@ -29,9 +29,10 @@ object Fit {
   final def semiToDeg(semi : Int) : Double =
     semi * (180.0 / math.pow(2, 31) )
 
-  def parseGpsTrack(resource: ByteSource): Track = {
+  def parseGpsTrack(resource: ByteSource, id: Int): Track = {
     Track(
-      parseGpsPositions(resource)
+      parseGpsPositions(resource),
+      id
     )
   }
 

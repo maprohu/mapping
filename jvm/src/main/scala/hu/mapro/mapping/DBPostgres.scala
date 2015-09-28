@@ -69,7 +69,7 @@ class DBPostgres extends DB {
 
   lazy val allGpsTracks : Future[Seq[Track]] =
     db.run(gpsTracks.result)
-      .map(tracks => tracks.map(track => Fit.parseGpsTrack(ByteSource.wrap(track.data))) )
+      .map(tracks => tracks.map(track => Fit.parseGpsTrack(ByteSource.wrap(track.data), track.id.get)) )
 
 
   def saveGpsTrack(data: Array[Byte]): Future[Int] = {

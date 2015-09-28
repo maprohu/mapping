@@ -105,6 +105,7 @@ lazy val appJVM = app.jvm
     mappings in (Compile, packageBin) ++= (
       (webJars in (appJS, Assets)).value ++
       Seq(
+        (fastOptJS in (appJS, Compile)).value.data,
         (fullOptJS in (appJS, Compile)).value.data,
         (packageScalaJSLauncher in (appJS, Compile)).value.data,
         (packageJSDependencies in (appJS, Compile)).value

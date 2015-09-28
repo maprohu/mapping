@@ -19,6 +19,7 @@ import rx._
 
 import scala.concurrent.Future
 import scala.scalajs.js
+import scala.scalajs.js.Date
 import scalatags.JsDom.all._
 
 /**
@@ -47,9 +48,10 @@ class GpsTracksTabView extends TabLike {
         cls := "form-group",
         label("Upload"),
         input(
-          `type` := "file"
+          `type` := "file",
+          multiple := "true"
         ).custom { input =>
-          input.onchange = { _:Event =>
+          input.onchange = { event:Event =>
             uiSelectFile.onNext(input.files)
           }
         },
@@ -60,27 +62,46 @@ class GpsTracksTabView extends TabLike {
 
           ctrlAddTrack.subscribe(track => Future {
             val trackVisible = Var(true)
+            Obs(trackVisible) {
+              (if (trackVisible()) uiShowTrack else uiHideTrack)
+                .onNext(track.id)
+            }
             val node = li(
-              track.positions.head.timestamp.toString,
+              new Date(track.positions.head.timestamp).toString,
               span(
                 cls := "glyphicon glyphicon-eye-open",
                 style := "cursor: pointer"
-              ).visibleWhen(trackVisible)
+              )
+                .visibleWhen(trackVisible)
+                .click(() => trackVisible() = false)
               ,
               span(
                 cls := "glyphicon glyphicon-eye-close",
                 style := "cursor: pointer"
-              ).hiddenWhen(trackVisible)
+              )
+                .hiddenWhen(trackVisible)
+                .click(() => trackVisible() = true)
               ,
               span(
-                cls := "glyphicon glyphicon-trash"
+                cls := "glyphicon glyphicon-trash",
+                style := "cursor: pointer"
               )
+                .click(() => uiDeleteTrack.onNext(track.id))
             ).render
             ul.appendChild(
               node
             )
 
             nodeMap += track.id -> node
+
+            ctrlDeleteTrack.subscribe(trackId => Future {
+              nodeMap.get(trackId).foreach { node =>
+                nodeMap -= trackId
+                ul.removeChild(node)
+              }
+
+              Continue
+            })
 
             Ack.Continue
           })

@@ -35,7 +35,7 @@ object Messaging {
   case class CyclewaysChanged(cycleways: Cycleways) extends ServerToClientMessage
 
   sealed trait ClientToServerMessage
-  case class DeleteTrack() extends ClientToServerMessage
+  case class DeleteTrack(id: Int) extends ClientToServerMessage
   case class FetchCycleways(polygon: Polygon) extends ClientToServerMessage
 }
 

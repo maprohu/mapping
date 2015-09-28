@@ -44,6 +44,9 @@ class MainActor extends Actor {
     case msg:FetchCycleways =>
       osm ! msg
 
+    case msg:DeleteTrack =>
+      db ! msg
+
     case ClientLeft() ⇒ //sendAdminMessage(s"$person left!")
     case Terminated(sub)         ⇒ clients -= sub // clean up dead clients
   }

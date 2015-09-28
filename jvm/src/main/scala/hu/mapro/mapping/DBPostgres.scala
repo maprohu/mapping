@@ -77,6 +77,10 @@ class DBPostgres extends DB {
       (gpsTracks returning gpsTracks.map(_.id)) += new GpsTrack(data)
     )
   }
+
+  def deleteGpsTrack(id: Int) = db.run(
+    gpsTracks.filter(_.id === id).delete
+  )
 }
 
 object DBPostgres {

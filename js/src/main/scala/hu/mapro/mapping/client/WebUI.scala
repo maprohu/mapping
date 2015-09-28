@@ -1,7 +1,6 @@
 package hu.mapro.mapping.client
 
 import autowire._
-import com.github.sjsf.bootstrapnotify.notification
 import com.github.sjsf.leaflet._
 import com.github.sjsf.leaflet.contextmenu.Implicits._
 import com.github.sjsf.leaflet.contextmenu.{MixinItemOptions, MixinOptions}
@@ -9,23 +8,19 @@ import com.github.sjsf.leaflet.draw._
 import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
 import hu.mapro.mapping._
 import hu.mapro.mapping.client.ui.GpsTracksUI
-import monifu.reactive.Ack
 import monifu.reactive.Ack.Continue
-import monifu.reactive.subjects.ReplaySubject
+import monifu.reactive.Observer
 import org.querki.jsext.JSOptionBuilder._
 import org.scalajs.dom
 import org.scalajs.dom.raw.{MessageEvent, WebSocket, FormData}
 import org.scalajs.dom._
 import hu.mapro.mapping.Coordinates
 import hu.mapro.mapping.Messaging._
-import hu.mapro.mapping.Position
 import rx._
 
-import scala.async.Async._
-import scala.concurrent.Future
 import monifu.concurrent.Implicits.globalScheduler
+import scala.concurrent.Future
 import scala.scalajs.js
-import scala.scalajs.js._
 import scala.scalajs.js.Any._
 import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.UndefOr._
@@ -43,18 +38,24 @@ class WebUI(store: Store) extends UI {
 }
 
 class WebUIDom(store: Store) {
+  val socket = new WebSocket(getWebsocketUri(dom.document))
+
+  val clientToServer = new Observer[ClientToServerMessage] {
+    def onNext(elem: ClientToServerMessage) = Future { toServer(elem); Continue }
+
+    def onError(ex: Throwable) = {}
+
+    def onComplete() = {}
+  }
+
   val body = dom.document.body
 
-  val gpsTracksLayer = LMultiPolyline(
-    js.Array(),
-    LPolylineOptions.color("pink")._result
-  )
 
-  val gpsTracksTab = new GpsTracksUI(gpsTracksLayer)
+  val gpsTracksTab = new GpsTracksUI(clientToServer)
   val html = Html
     .generate(
       Seq(
-        gpsTracksTab,
+        gpsTracksTab.tab,
         Tab(
           id = "database",
           icon = Seq(
@@ -177,10 +178,9 @@ class WebUIDom(store: Store) {
   ).addTo(map)
   layers.addOverlay(cyclewaysLayer, "Cycleways")
 
-  gpsTracksLayer.addTo(map)
-  layers.addOverlay(gpsTracksLayer, "GPS Tracks")
+  gpsTracksTab.gpsTracksLayer.addTo(map)
+  layers.addOverlay(gpsTracksTab.gpsTracksLayer, "GPS Tracks")
 
-  val socket = new WebSocket(getWebsocketUri(dom.document))
 
   socket.onopen = { (event:Event) =>
     println("websocket opened")
@@ -191,6 +191,8 @@ class WebUIDom(store: Store) {
 
     msg match {
       case m @ GpsTracksAdded(tracks) =>
+        gpsTracksTab.serverToClient.onNext(m)
+      case m @ GpsTracksRemoved(tracks) =>
         gpsTracksTab.serverToClient.onNext(m)
       case CyclewaysChanged(cycleways) =>
         cyclewaysLayer.setLatLngs(
@@ -228,8 +230,11 @@ object Util {
 
   implicit class CustomTag[T <: Element](tag: TypedTag[T]) {
     def custom(f: T => Unit) : TypedTag[T] = tag.apply(Util.custom(elem => f(elem.asInstanceOf[T])))
-    def visibleWhen(rx: Rx[Boolean]) = custom(elem => Obs(rx) { jQuery(elem).toggleClass("hidden", rx())})
-    def hiddenWhen(rx: Rx[Boolean]) = custom(elem => Obs(rx) { jQuery(elem).toggleClass("hidden", !rx())})
+    def visibleWhen(rx: Rx[Boolean]) = custom(elem => Obs(rx) { jQuery(elem).toggleClass("hidden", !rx())})
+    def hiddenWhen(rx: Rx[Boolean]) = custom(elem => Obs(rx) { jQuery(elem).toggleClass("hidden", rx())})
+    def jquery = jQuery(tag.render)
+    def jquery(f: JQuery => Unit) = custom(elem => f(jQuery(elem)))
+    def click(f: () => Unit) = jquery(_.click((data:JQueryEventObject) => f()))
   }
 
   def toPolyLine(track: Track) : LPolyline = LPolyline(

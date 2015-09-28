@@ -52,6 +52,16 @@ class DBActor extends Actor with Stash {
           GpsTracksAdded(Seq(track))
         )
       context.become(working(db, track +: gpsTracks))
+    case DeleteTrack(trackId) =>
+      db
+        .deleteGpsTrack(trackId)
+        .map { _ => GpsTracksRemoved(Seq(trackId)) }
+        .pipeTo(self)
+    case msg @ GpsTracksRemoved(trackIds) =>
+      context.parent ! ToAllClients(msg)
+      context.become(working(db, gpsTracks.filter(track => !trackIds.contains(track.id))))
+
+
 
   }
 

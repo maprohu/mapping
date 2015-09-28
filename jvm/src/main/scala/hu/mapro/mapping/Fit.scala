@@ -43,7 +43,7 @@ object Fit {
       Position(
         semiToDeg(r.getPositionLat),
         semiToDeg(r.getPositionLong),
-        r.getTimestamp.getTimestamp
+        r.getTimestamp.getDate.getTime
       )
     }
   }

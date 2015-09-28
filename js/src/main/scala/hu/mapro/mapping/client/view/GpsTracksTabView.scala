@@ -15,6 +15,7 @@ import monifu.reactive.subjects.ReplaySubject
 import org.scalajs.dom._
 import org.scalajs.dom.raw.FormData
 import org.scalajs.jquery._
+import rx._
 
 import scala.concurrent.Future
 import scala.scalajs.js
@@ -58,13 +59,18 @@ class GpsTracksTabView extends TabLike {
           var nodeMap = Map[Int, Node]()
 
           ctrlAddTrack.subscribe(track => Future {
+            val trackVisible = Var(true)
             val node = li(
               track.positions.head.timestamp.toString,
               span(
-                cls := "glyphicon glyphicon-eye-open"
-                ,
+                cls := "glyphicon glyphicon-eye-open",
                 style := "cursor: pointer"
-              )
+              ).visibleWhen(trackVisible)
+              ,
+              span(
+                cls := "glyphicon glyphicon-eye-close",
+                style := "cursor: pointer"
+              ).hiddenWhen(trackVisible)
               ,
               span(
                 cls := "glyphicon glyphicon-trash"

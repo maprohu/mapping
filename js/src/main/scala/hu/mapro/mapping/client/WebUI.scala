@@ -228,6 +228,8 @@ object Util {
 
   implicit class CustomTag[T <: Element](tag: TypedTag[T]) {
     def custom(f: T => Unit) : TypedTag[T] = tag.apply(Util.custom(elem => f(elem.asInstanceOf[T])))
+    def visibleWhen(rx: Rx[Boolean]) = custom(elem => Obs(rx) { jQuery(elem).toggleClass("hidden", rx())})
+    def hiddenWhen(rx: Rx[Boolean]) = custom(elem => Obs(rx) { jQuery(elem).toggleClass("hidden", !rx())})
   }
 
   def toPolyLine(track: Track) : LPolyline = LPolyline(

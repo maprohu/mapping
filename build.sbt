@@ -85,7 +85,7 @@ lazy val app = crossProject.in(file("."))
     (crossTarget in packageScalaJSLauncher) := webAssetsTarget.value,
     (crossTarget in packageJSDependencies) := webAssetsTarget.value,
 
-    (webJarsDirectory in Assets) := webAssetsTarget.value
+    (webJarsDirectory in Assets) := webAssetsTarget.value,
     webJarsCache in webJars in Assets := target.value / "webjars-main.cache",
 
 

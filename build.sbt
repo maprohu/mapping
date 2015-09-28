@@ -62,7 +62,7 @@ lazy val app = crossProject.in(file("."))
     persistLauncher in Compile := true,
     persistLauncher in Test := false,
 
-    resolvers ++= (
+    resolvers ++= Seq(
       DefaultMavenRepository,
       "maven central" at "http://central.maven.org/maven2/"
     ),

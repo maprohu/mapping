@@ -1,9 +1,20 @@
+import org.scalajs.sbtplugin.cross.CrossProject
 import sbt._
+import Keys._
+import org.scalajs.sbtplugin.ScalaJSPlugin
+import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
 
 object Deps {
 
+  val appJVMResolvers = Seq(
+    "cwatch-ext-release" at "http://cwatch.org/repo/ext-release-local",
+    Resolver.sonatypeRepo("snapshots"),
+    Resolver.typesafeRepo("releases")
+  )
 
-  val serverDependencies = Seq(
+
+
+  val appJVMDependencies = Seq(
     "com.typesafe.akka" %% "akka-http-experimental" % "1.0",
     "org.scala-lang.modules" % "scala-xml_2.11" % "1.0.5",
     //      "io.spray" %% "spray-can" % "1.3.2",
@@ -23,5 +34,26 @@ object Deps {
     "org.reactivemongo" %% "reactivemongo" % "0.11.7"
 
   )
+
+  val appDependencies = (p:CrossProject) => {p.settings(libraryDependencies ++= Seq(
+    "com.lihaoyi" %%% "scalatags" % "0.5.2",
+    "com.lihaoyi" %%% "upickle" % "0.3.6",
+    "com.lihaoyi" %%% "autowire" % "0.2.5"
+  ))}
+
+  val appJSDependencies = (p:Project) => {p.settings(
+    libraryDependencies ++= Seq(
+      "org.scala-js" %%% "scalajs-dom" % "0.8.0",
+      "com.softwaremill.macwire" %% "macros" % "2.0.0",
+      "org.scala-lang.modules" %% "scala-async" % "0.9.5",
+      "org.webjars" % "font-awesome" % "4.4.0",
+      "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
+      "com.lihaoyi" %%% "scalarx" % "0.2.8",
+      "org.monifu" %%% "monifu" % "1.0-RC3"
+    ),
+    jsDependencies ++= Seq(
+      "org.webjars" % "bootstrap" % "3.3.5" / "js/bootstrap.js" dependsOn "jquery.js"
+    )
+  )}
 
 }

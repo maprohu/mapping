@@ -8,39 +8,31 @@ val webAssetsBase = SettingKey[File]("web-assets-base", "The directory where web
 val webAssetsPath = SettingKey[String]("web-assets-path", "The path within the web-assets-base where assets are written")
 val webAssetsTarget = SettingKey[File]("web-assets-target", "The directory where web asset files will be written")
 
-name := "Mapping"
-
+lazy val commonSettings = Seq(
+  version := "0.1-SNAPSHOT",
+  scalaVersion := "2.11.7"
+)
 
 lazy val root = project.in(file(".")).
-  aggregate(appJS, appJVM).
+  aggregate(appJS, appJVM, apiJS, apiJVM).
   settings(
     publish := {},
     publishLocal := {}
   )
 
 
-lazy val app = crossProject.in(file("."))
+
+lazy val app = crossProject.in(file("app"))
+  .dependsOn(api)
   .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings:_*)
-  .settings(
-    name := "mapping",
-    version := "0.1-SNAPSHOT",
-    scalaVersion := "2.11.7",
-    libraryDependencies ++= Seq(
-      "com.lihaoyi" %%% "scalatags" % "0.5.2",
-      "com.lihaoyi" %%% "upickle" % "0.3.6",
-      "com.lihaoyi" %%% "autowire" % "0.2.5"
-    )
-  )
+  .settings(commonSettings:_*)
+  .configure(Deps.appDependencies)
   .jvmSettings(Revolver.settings: _*)
   .jvmSettings(
-    resolvers ++= Seq(
-      "cwatch-ext-release" at "http://cwatch.org/repo/ext-release-local" ,
-      Resolver.sonatypeRepo("snapshots"),
-      Resolver.typesafeRepo("releases")
-    ),
-    //credentials += Credentials(Path.userHome / ".ivy2" / "cwatch.credentials"),
-    libraryDependencies ++= Deps.serverDependencies,
-    cancelable in Global := true,
+    resolvers ++= Deps.appJVMResolvers,
+    libraryDependencies ++= Deps.appJVMDependencies,
+
+    // use mkgmap to generate style for garmin maps
     resourceGenerators in Compile += Def.task {
       uk.me.parabola.mkgmap.main.Main.mainNoSystemExit(
         Seq(
@@ -62,20 +54,10 @@ lazy val app = crossProject.in(file("."))
     persistLauncher in Compile := true,
     persistLauncher in Test := false,
 
-    libraryDependencies ++= Seq(
-      "org.scala-js" %%% "scalajs-dom" % "0.8.0",
-      "com.softwaremill.macwire" %% "macros" % "2.0.0",
-      "org.scala-lang.modules" %% "scala-async" % "0.9.5",
-      "org.webjars" % "font-awesome" % "4.4.0",
-      "be.doeraene" %%% "scalajs-jquery" % "0.8.0",
-      "com.lihaoyi" %%% "scalarx" % "0.2.8",
-      "org.monifu" %%% "monifu" % "1.0-RC3"
-    ),
-    jsDependencies ++= Seq(
-      "org.webjars" % "bootstrap" % "3.3.5" / "js/bootstrap.js" dependsOn "jquery.js"
-    ),
     requiresDOM := true,
 
+    // generataing public resources in a directory so they can be
+    // added to runtime classpath to be served by jvm process
     webAssetsBase := target.value / "assets",
     webAssetsPath := "public",
     webAssetsTarget := webAssetsBase.value / webAssetsPath.value,
@@ -88,13 +70,10 @@ lazy val app = crossProject.in(file("."))
     (webJarsDirectory in Assets) := webAssetsTarget.value,
     webJarsCache in webJars in Assets := target.value / "webjars-main.cache",
 
-
-
     fastOptJS in Compile := {
       (webJars in Assets).value
       (fastOptJS in Compile).value
     }
-
 
   )
 
@@ -102,6 +81,7 @@ lazy val appJVM = app.jvm
   .enablePlugins(JavaAppPackaging)
   .configs()
   .settings(
+    // adding the fully optimized JS to the prodcution build
     mappings in (Compile, packageBin) ++= (
       (webJars in (appJS, Assets)).value ++
       Seq(
@@ -112,21 +92,11 @@ lazy val appJVM = app.jvm
       )
     ) pair relativeTo((webAssetsBase in appJS).value),
 
+    // using the output of fastOptJs as resources at runtime
     (fullClasspath in Runtime) += (webAssetsBase in appJS).value
 
   )
 
-lazy val leaflet = ProjectRef(file("scalajs-facades"), "leaflet")
-
-lazy val leafletDraw = ProjectRef(file("scalajs-facades"), "leafletDraw")
-
-lazy val leafletContextmenu = ProjectRef(file("scalajs-facades"), "leafletContextmenu")
-
-lazy val sidebarV2 = ProjectRef(file("scalajs-facades"), "sidebarV2")
-
-lazy val pouchdb = ProjectRef(file("scalajs-facades"), "pouchdb")
-
-lazy val bootstrapNotify = ProjectRef(file("scalajs-facades"), "bootstrapNotify")
 
 lazy val appJS = app.js
   .enablePlugins(SbtWeb)
@@ -138,4 +108,33 @@ lazy val appJS = app.js
     leafletContextmenu,
     bootstrapNotify
   )
+  .configure(Deps.appJSDependencies)
 
+lazy val api = crossProject.in(file("api"))
+  .settings(commonSettings:_*)
+
+lazy val apiJVM = api.jvm
+
+lazy val apiJS = api.js
+
+lazy val daemon = project
+  .settings(Revolver.settings: _*)
+  .settings(commonSettings:_*)
+  .dependsOn(apiJVM)
+
+
+
+
+
+// library dependencies in git submodule
+lazy val leaflet = ProjectRef(file("scalajs-facades"), "leaflet")
+
+lazy val leafletDraw = ProjectRef(file("scalajs-facades"), "leafletDraw")
+
+lazy val leafletContextmenu = ProjectRef(file("scalajs-facades"), "leafletContextmenu")
+
+lazy val sidebarV2 = ProjectRef(file("scalajs-facades"), "sidebarV2")
+
+lazy val pouchdb = ProjectRef(file("scalajs-facades"), "pouchdb")
+
+lazy val bootstrapNotify = ProjectRef(file("scalajs-facades"), "bootstrapNotify")

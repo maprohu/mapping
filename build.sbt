@@ -14,7 +14,7 @@ lazy val commonSettings = Seq(
 )
 
 lazy val root = project.in(file(".")).
-  aggregate(appJS, appJVM, apiJS, apiJVM).
+  aggregate(appJS, appJVM).
   settings(
     publish := {},
     publishLocal := {}
@@ -23,7 +23,6 @@ lazy val root = project.in(file(".")).
 
 
 lazy val app = crossProject.in(file("app"))
-  .dependsOn(api)
   .settings(net.virtualvoid.sbt.graph.Plugin.graphSettings:_*)
   .settings(commonSettings:_*)
   .configure(Deps.appDependencies)
@@ -79,6 +78,7 @@ lazy val app = crossProject.in(file("app"))
 
 lazy val appJVM = app.jvm
   .enablePlugins(JavaAppPackaging)
+  .dependsOn(api)
   .configs()
   .settings(
     // adding the fully optimized JS to the prodcution build
@@ -110,17 +110,14 @@ lazy val appJS = app.js
   )
   .configure(Deps.appJSDependencies)
 
-lazy val api = crossProject.in(file("api"))
+lazy val api = project
   .settings(commonSettings:_*)
 
-lazy val apiJVM = api.jvm
-
-lazy val apiJS = api.js
 
 lazy val daemon = project
   .settings(Revolver.settings: _*)
   .settings(commonSettings:_*)
-  .dependsOn(apiJVM)
+  .dependsOn(api)
 
 
 

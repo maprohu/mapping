@@ -2,6 +2,7 @@ package hu.mapro.mapping
 
 import akka.actor.ActorSystem
 import akka.stream.ActorMaterializer
+import hu.mapro.mapping.daemon.DaemonService
 
 import scala.concurrent.Future
 
@@ -14,6 +15,7 @@ class MainServerModule {
   lazy implicit val db = new DBPostgres
   lazy implicit val service = new Service
   lazy implicit val webservice = new Webservice
+  lazy implicit val daemonService = new DaemonService
 }
 
 trait DB {

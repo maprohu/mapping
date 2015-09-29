@@ -32,7 +32,6 @@ object Deps {
     "com.propensive" %% "rapture-json" % "2.0.0-M2-SNAPSHOT",
     "com.propensive" %% "rapture-json-json4s" % "2.0.0-M2-SNAPSHOT",
     "org.reactivemongo" %% "reactivemongo" % "0.11.7"
-
   )
 
   val appDependencies = (p:CrossProject) => {p.settings(libraryDependencies ++= Seq(
@@ -55,5 +54,17 @@ object Deps {
       "org.webjars" % "bootstrap" % "3.3.5" / "js/bootstrap.js" dependsOn "jquery.js"
     )
   )}
+
+  val daemonDependencies = Seq(
+    "com.github.kxbmap" %% "configs" % "0.2.5",
+    "com.typesafe" % "config" % "1.3.0",
+    "org.monifu" %% "monifu" % "1.0-RC3",
+    "org.glassfish.tyrus.bundles" % "tyrus-standalone-client" % "1.12"
+
+  )
+  val apiDependencies = Seq(
+    "com.jsuereth" %% "scala-arm" % "1.4"
+
+  )
 
 }

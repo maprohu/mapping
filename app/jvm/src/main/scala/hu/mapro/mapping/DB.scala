@@ -1,6 +1,8 @@
 package hu.mapro.mapping
 
 import java.security.MessageDigest
+import hu.mapro.mapping.api.Util
+
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import com.google.common.io.ByteSource
@@ -25,9 +27,6 @@ trait DB {
  */
 class DBPostgres extends DB {
 
-  def md5(buf: Array[Byte]): Array[Byte] = MessageDigest.getInstance("MD5").digest(buf)
-  def hex(buf: Array[Byte]): String = buf.map("%02X" format _).mkString
-  def hash(buf: Array[Byte]): String = hex(md5(buf))
 
   val urlString = Properties.envOrElse("DATABASE_URL", "postgres://mapping:mapping@localhost/mapping")
 
@@ -60,9 +59,9 @@ class DBPostgres extends DB {
     def this(data: Array[Byte], hash: String) =
       this(None, hash, data)
     def this(data: Array[Byte]) =
-      this(None, hash(data), data)
+      this(None, Util.hash(data), data)
     def this(id: Int, data: Array[Byte]) =
-      this(Some(id), hash(data), data)
+      this(Some(id), Util.hash(data), data)
   }
 
 
@@ -83,7 +82,7 @@ class DBPostgres extends DB {
 
 
   def saveGpsTrack(data: Array[Byte]): Future[(Int, String)] = {
-    val hc = hash(data)
+    val hc = Util.hash(data)
     db.run(
       (gpsTracks returning gpsTracks.map(_.id)) += new GpsTrack(data)
     ).map((_, hc))
@@ -116,7 +115,7 @@ object DBPostgres {
         val data = com.google.common.io.Resources.toByteArray(res)
         GpsTrack(
           None,
-          hash(data),
+          Util.hash(data),
           data
         )
       }

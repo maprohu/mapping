@@ -112,14 +112,18 @@ lazy val appJS = app.js
 
 lazy val api = project
   .settings(commonSettings:_*)
+  .settings(
+    libraryDependencies ++= Deps.apiDependencies
+  )
 
 
 lazy val daemon = project
   .settings(Revolver.settings: _*)
   .settings(commonSettings:_*)
+  .settings(
+    libraryDependencies ++= Deps.daemonDependencies
+  )
   .dependsOn(api)
-
-
 
 
 

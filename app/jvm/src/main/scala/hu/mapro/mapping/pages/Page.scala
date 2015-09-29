@@ -18,9 +18,9 @@ object Page{
         )
       ),
       body(
-        script(src:="mapping-jsdeps.js")
-        , script(src:=s"mapping-$opt.js")
-        , script(src:="mapping-launcher.js")
+        script(src:="app-jsdeps.js")
+        , script(src:=s"app-$opt.js")
+        , script(src:="app-launcher.js")
       )
     )
 }

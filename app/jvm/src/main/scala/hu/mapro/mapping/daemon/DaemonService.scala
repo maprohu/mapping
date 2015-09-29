@@ -14,15 +14,17 @@ import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping.actors.MainActor.{GpsTrackUploaded, ToAllClients}
 import akka.pattern._
 import hu.mapro.mapping.api.DaemonApi.{DaemonToServerMessage, ServerToDaemonMessage}
+import scala.concurrent.ExecutionContext.Implicits.global
 
 import scala.concurrent.duration._
 /**
  * Created by pappmar on 29/09/2015.
  */
-class DaemonService(implicit
-  materializer: Materializer,
-  mappingClients: MappingClients
+class DaemonService(
+  mappingClients: MappingClients,
+  materializer: Materializer
 ) extends Directives {
+  implicit val mat = materializer
 
   def route =
     path("daemon") {
@@ -53,7 +55,7 @@ class DaemonService(implicit
 
   def reportErrorsFlow[T]: Flow[T, T, Unit] =
     Flow[T]
-      .transform(() ? new PushStage[T, T] {
+      .transform(() => new PushStage[T, T] {
       def onPush(elem: T, ctx: Context[T]): SyncDirective = ctx.push(elem)
 
       override def onUpstreamFailure(cause: Throwable, ctx: Context[T]): TerminationDirective = {

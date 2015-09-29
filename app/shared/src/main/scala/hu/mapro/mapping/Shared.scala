@@ -17,7 +17,6 @@ case class Track(positions: Seq[Position], id : Int)
 
 trait Api {
   def cycleways() : Future[Cycleways]
-  def tracks() : Future[Seq[Track]]
   def generateImg(bounds: Polygon) : Future[Seq[Seq[Position]]]
 }
 

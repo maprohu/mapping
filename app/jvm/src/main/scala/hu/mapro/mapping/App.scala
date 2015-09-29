@@ -73,7 +73,7 @@ object App extends MainServerModule with Directives {
               formData.parts
                 .mapAsync(1)( _.entity.dataBytes.runFold(ByteString.empty)(_ ++ _) )
                 .map( bytes => GpsTrackUploaded(bytes.toArray) )
-                .runWith(Sink.actorRef(webservice.theClients.mainActor, UploadComplete))
+                .runWith(Sink.actorRef(mappingClients.mainActor, UploadComplete))
               ""
             }
           }

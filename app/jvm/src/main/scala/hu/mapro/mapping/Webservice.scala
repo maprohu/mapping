@@ -13,7 +13,7 @@ import hu.mapro.mapping.actors.MainActor.ToAllClients
 
 import scala.concurrent.duration._
 
-class Webservice(implicit
+class Webservice(
   system: ActorSystem,
   materializer: Materializer,
   mappingClients: MappingClients
@@ -48,7 +48,7 @@ class Webservice(implicit
 
   def reportErrorsFlow[T]: Flow[T, T, Unit] =
     Flow[T]
-      .transform(() ⇒ new PushStage[T, T] {
+      .transform(() => new PushStage[T, T] {
         def onPush(elem: T, ctx: Context[T]): SyncDirective = ctx.push(elem)
 
         override def onUpstreamFailure(cause: Throwable, ctx: Context[T]): TerminationDirective = {

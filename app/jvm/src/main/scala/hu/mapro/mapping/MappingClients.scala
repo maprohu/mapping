@@ -12,7 +12,7 @@ import hu.mapro.mapping.api.DaemonApi._
 
 
 
-class MappingClients(implicit actorSystem: ActorSystem) {
+class MappingClients(actorSystem: ActorSystem) {
   import MainActor._
 
   // The implementation uses a single actor per chat to collect and distribute

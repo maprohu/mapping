@@ -47,7 +47,6 @@ class MainActor extends Actor {
     case msg:DeleteTrack =>
       db ! msg
 
-    case
 
     case ClientLeft() ⇒ //sendAdminMessage(s"$person left!")
     case Terminated(sub)         ⇒ clients -= sub // clean up dead clients

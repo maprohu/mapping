@@ -6,10 +6,9 @@ import hu.mapro.mapping.Messaging.Cycleways
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
-class Service(implicit db: DB) extends Api {
+class Service(db: DB) extends Api {
 
 
-  override def tracks(): Future[Seq[Track]] = db.allGpsTracks
 
 
 
@@ -42,7 +41,7 @@ class Service(implicit db: DB) extends Api {
 
     db.allGpsTracks.map { tracks =>
       val result = tracks flatMap { track =>
-        val positions = track.positions
+        val positions = track._1.positions
         val posKeep = (false +: (positions map isInside) :+ false) sliding 3 map {_.exists{identity}}
         removeOuts( positions.iterator zip posKeep, Seq() )
       }

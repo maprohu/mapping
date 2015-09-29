@@ -38,13 +38,13 @@ object Deps {
   val appDependencies = (p:CrossProject) => {p.settings(libraryDependencies ++= Seq(
     "com.lihaoyi" %%% "scalatags" % "0.5.2",
     "com.lihaoyi" %%% "upickle" % "0.3.6",
-    "com.lihaoyi" %%% "autowire" % "0.2.5"
+    "com.lihaoyi" %%% "autowire" % "0.2.5",
+    "com.softwaremill.macwire" %% "macros" % "2.0.0"
   ))}
 
   val appJSDependencies = (p:Project) => {p.settings(
     libraryDependencies ++= Seq(
       "org.scala-js" %%% "scalajs-dom" % "0.8.0",
-      "com.softwaremill.macwire" %% "macros" % "2.0.0",
       "org.scala-lang.modules" %% "scala-async" % "0.9.5",
       "org.webjars" % "font-awesome" % "4.4.0",
       "be.doeraene" %%% "scalajs-jquery" % "0.8.0",

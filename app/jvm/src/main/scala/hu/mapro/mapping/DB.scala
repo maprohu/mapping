@@ -57,6 +57,8 @@ class DBPostgres extends DB {
     hash: String,
     data: Array[Byte]
   ) {
+    def this(data: Array[Byte], hash: String) =
+      this(None, hash, data)
     def this(data: Array[Byte]) =
       this(None, hash(data), data)
     def this(id: Int, data: Array[Byte]) =
@@ -80,10 +82,11 @@ class DBPostgres extends DB {
       .map(tracks => tracks.map(track => (Fit.parseGpsTrack(ByteSource.wrap(track.data), track.id.get), track.hash)) )
 
 
-  def saveGpsTrack(data: Array[Byte]): Future[Int] = {
+  def saveGpsTrack(data: Array[Byte]): Future[(Int, String)] = {
+    val hc = hash(data)
     db.run(
       (gpsTracks returning gpsTracks.map(_.id)) += new GpsTrack(data)
-    )
+    ).map((_, hc))
   }
 
   def deleteGpsTrack(id: Int) = db.run(

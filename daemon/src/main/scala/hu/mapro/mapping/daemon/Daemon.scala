@@ -5,6 +5,8 @@ package hu.mapro.mapping.daemon
  */
 object Daemon extends App {
 
+
+
   println("daemon 3")
 
 }

@@ -28,10 +28,9 @@ class DBActor extends Actor with Stash {
   } self ! Deps(db, tracks)
 
   def receive = {
-    case Deps(db, tracksHashes) =>
+    case Deps(db, tracks) =>
       unstashAll()
-      val (tracks, hashes) = tracksHashes.unzip
-      context.become(working(db, tracks.map(t => t.id -> t).toMap, hashes.toSet))
+      context.become(working(db, tracks.map(t => t._1.id -> t).toMap))
     case _ => stash()
   }
 

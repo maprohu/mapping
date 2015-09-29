@@ -1,13 +1,11 @@
 package hu.mapro.mapping.actors
 
 import akka.actor._
-import com.google.common.io.ByteSource
 import akka.pattern.pipe
-import hu.mapro.mapping._
+import com.google.common.io.ByteSource
 import hu.mapro.mapping.Messaging._
-
-
-
+import hu.mapro.mapping._
+import hu.mapro.mapping.api.DaemonApi.AcceptGpsTrackHash
 
 
 object DBActor {
@@ -39,6 +37,7 @@ class DBActor extends Actor with Stash {
 
   def working(db: DB, gpsTracks: Map[Int, (Track, String)]) : Receive = {
     val tracksSeq: Seq[Track] = gpsTracks.values.map(_._1).toSeq
+    val hashSet = gpsTracks.values.map(_._2).toSet
 
     {
       case InitClient(client) =>
@@ -66,6 +65,7 @@ class DBActor extends Actor with Stash {
         context.parent ! ToAllClients(msg)
         context.become(working(db, gpsTracks -- trackIds))
       case GpsTrackOffered(hash, from) =>
+        if (!hashSet.contains(hash)) from ! AcceptGpsTrackHash(hash)
 
 
 

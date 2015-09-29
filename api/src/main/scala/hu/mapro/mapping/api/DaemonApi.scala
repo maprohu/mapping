@@ -6,8 +6,10 @@ package hu.mapro.mapping.api
 object DaemonApi {
 
   sealed trait Message
-  case class OfferGpsTrackHash(hash: String) extends Message
-  case class AcceptGpsTrackHash(hash: String) extends Message
+  sealed trait DaemonToServerMessage extends Message
+  sealed trait ServerToDaemonMessage extends Message
+  case class OfferGpsTrackHash(hash: String) extends DaemonToServerMessage
+  case class AcceptGpsTrackHash(hash: String) extends ServerToDaemonMessage
 
 
 

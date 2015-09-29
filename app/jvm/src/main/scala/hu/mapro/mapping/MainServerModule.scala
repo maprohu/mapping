@@ -16,14 +16,7 @@ class MainServerModule {
   lazy implicit val service = new Service
   lazy implicit val webservice = new Webservice
   lazy implicit val daemonService = new DaemonService
+  lazy implicit val mappingClients = new MappingClients
 }
 
-trait DB {
-
-  def allGpsTracks : Future[Seq[Track]]
-
-  def saveGpsTrack(data: Array[Byte]) : Future[Int]
-  def deleteGpsTrack(id: Int) : Future[Any]
-
-}
 

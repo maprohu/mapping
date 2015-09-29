@@ -11,9 +11,10 @@ import hu.mapro.mapping.Messaging._
 
 
 object DBActor {
-  case class Deps(db: DB, gspTracks: Seq[Track])
+  case class Deps(db: DB, gspTracks: Seq[(Track, String)])
   case class InitClient(client: ActorRef)
-  case class GpsTrackSaved(track: Track)
+  case class GpsTrackSaved(track: Track, hash: String)
+  case class GpsTrackOffered(hash: String, from: ActorRef)
 
 }
 
@@ -29,40 +30,46 @@ class DBActor extends Actor with Stash {
   } self ! Deps(db, tracks)
 
   def receive = {
-    case Deps(db, tracks) =>
+    case Deps(db, tracksHashes) =>
       unstashAll()
-      context.become(working(db, tracks))
+      val (tracks, hashes) = tracksHashes.unzip
+      context.become(working(db, tracks.map(t => t.id -> t).toMap, hashes.toSet))
     case _ => stash()
   }
 
-  def working(db: DB, gpsTracks: Seq[Track]) : Receive = {
-    case InitClient(client) =>
-      context.parent ! ToClient(client, GpsTracksAdded(gpsTracks))
-      context.parent ! ClientInitialized(client)
-    case GpsTrackUploaded(msg) =>
-      db
-        .saveGpsTrack(msg)
-        .map{id =>
-          GpsTrackSaved(Track(Fit.parseGpsPositions(ByteSource.wrap(msg)), id))
+  def working(db: DB, gpsTracks: Map[Int, (Track, String)]) : Receive = {
+    val tracksSeq: Seq[Track] = gpsTracks.values.map(_._1).toSeq
+
+    {
+      case InitClient(client) =>
+        context.parent ! ToClient(client, GpsTracksAdded(tracksSeq))
+        context.parent ! ClientInitialized(client)
+      case GpsTrackUploaded(msg) =>
+        db
+          .saveGpsTrack(msg)
+          .map{case (id, hash) =>
+          GpsTrackSaved(Track(Fit.parseGpsPositions(ByteSource.wrap(msg)), id), hash)
         }
-        .pipeTo(self)
-    case GpsTrackSaved(track) =>
-      context.parent !
-        ToAllClients(
-          GpsTracksAdded(Seq(track))
-        )
-      context.become(working(db, track +: gpsTracks))
-    case DeleteTrack(trackId) =>
-      db
-        .deleteGpsTrack(trackId)
-        .map { _ => GpsTracksRemoved(Seq(trackId)) }
-        .pipeTo(self)
-    case msg @ GpsTracksRemoved(trackIds) =>
-      context.parent ! ToAllClients(msg)
-      context.become(working(db, gpsTracks.filter(track => !trackIds.contains(track.id))))
+          .pipeTo(self)
+      case GpsTrackSaved(track, hash) =>
+        context.parent !
+          ToAllClients(
+            GpsTracksAdded(Seq(track))
+          )
+        context.become(working(db, gpsTracks + (track.id -> (track, hash))))
+      case DeleteTrack(trackId) =>
+        db
+          .deleteGpsTrack(trackId)
+          .map { _ => GpsTracksRemoved(Seq(trackId)) }
+          .pipeTo(self)
+      case msg @ GpsTracksRemoved(trackIds) =>
+        context.parent ! ToAllClients(msg)
+        context.become(working(db, gpsTracks -- trackIds))
+      case GpsTrackOffered(hash, from) =>
 
 
 
+    }
   }
 
 }

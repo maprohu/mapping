@@ -13,11 +13,15 @@ import hu.mapro.mapping.actors.MainActor.ToAllClients
 
 import scala.concurrent.duration._
 
-class Webservice(implicit fm: Materializer, system: ActorSystem) extends Directives {
-  val theClients = MappingClients.create(system)
+class Webservice(implicit
+  system: ActorSystem,
+  materializer: Materializer,
+  mappingClients: MappingClients
+) extends Directives {
   import system.dispatcher
+
   system.scheduler.schedule(15.second, 15.second) {
-    theClients.injectMessage(ToAllClients(Tick))
+    mappingClients.injectMessage(ToAllClients(Tick))
   }
 
   def route =
@@ -34,7 +38,7 @@ class Webservice(implicit fm: Materializer, system: ActorSystem) extends Directi
         // unlikely because chat messages are small) but absolutely possible
         // FIXME: We need to handle TextMessage.Streamed as well.
       }
-      .via(theClients.clientFlow()) // ... and route them through the chatFlow ...
+      .via(mappingClients.clientFlow()) // ... and route them through the chatFlow ...
       .map {
         case message:ServerToClientMessage => {
           TextMessage.Strict(pickle.serverToClient(message)) // ... pack outgoing messages into WS JSON messages ...

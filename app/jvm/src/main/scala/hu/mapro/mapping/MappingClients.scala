@@ -8,51 +8,48 @@ import com.google.common.primitives.Bytes
 import akka.pattern.pipe
 import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping.actors.{MainActor, OSMActor}
+import hu.mapro.mapping.api.DaemonApi._
 
 
-trait MappingClients {
-  def clientFlow(): Flow[ClientToServerMessage, ServerToClientMessage, Unit]
 
-  def injectMessage(message: Any): Unit
+class MappingClients(implicit actorSystem: ActorSystem) {
+  import MainActor._
 
-  def mainActor : ActorRef
-}
+  // The implementation uses a single actor per chat to collect and distribute
+  // chat messages. It would be nicer if this could be built by stream operations
+  // directly.
+  val mainActor =
+    actorSystem.actorOf(Props[MainActor], "mainActor")
 
-object MappingClients {
-  def create(actorSystem: ActorSystem): MappingClients = {
-    import MainActor._
 
-    new MappingClients {
-      // The implementation uses a single actor per chat to collect and distribute
-      // chat messages. It would be nicer if this could be built by stream operations
-      // directly.
-      val mainActor =
-        actorSystem.actorOf(Props[MainActor], "mainActor")
+  def clientFlow(): Flow[ClientToServerMessage, ServerToClientMessage, Unit] = {
+    val in =
+      Flow[ClientToServerMessage]
+        .to(Sink.actorRef[Any](mainActor, ClientLeft()))
 
-      // Wraps the mainActor in a sink. When the stream to this sink will be completed
-      // it sends the `ClientLeft` message to the mainActor.
-      // FIXME: here some rate-limiting should be applied to prevent single users flooding the chat
-      def clientInSink() = Sink.actorRef[Any](mainActor, ClientLeft())
+    // The counter-part which is a source that will create a target ActorRef per
+    // materialization where the mainActor will send its messages to.
+    // This source will only buffer one element and will fail if the client doesn't read
+    // messages fast enough.
+    val out =
+      Source.actorRef[ServerToClientMessage](100, OverflowStrategy.fail)
+        .mapMaterializedValue(mainActor ! NewClient(_))
 
-      def clientFlow(): Flow[ClientToServerMessage, ServerToClientMessage, Unit] = {
-        val in =
-          Flow[ClientToServerMessage]
-            .to(clientInSink())
-
-        // The counter-part which is a source that will create a target ActorRef per
-        // materialization where the mainActor will send its messages to.
-        // This source will only buffer one element and will fail if the client doesn't read
-        // messages fast enough.
-        val out =
-          Source.actorRef[ServerToClientMessage](100, OverflowStrategy.fail)
-            .mapMaterializedValue(mainActor ! NewClient(_))
-
-        Flow.wrap(in, out)(Keep.none)
-      }
-      def injectMessage(message: Any): Unit = mainActor ! message // non-streams interface
-    }
+    Flow.wrap(in, out)(Keep.none)
   }
 
+  def daemonFlow(): Flow[Any, ServerToDaemonMessage, Unit] = {
+    val in =
+      Flow[Any]
+        .to(Sink.actorRef[Any](mainActor, ClientLeft()))
+
+    val out =
+      Source.actorRef[ServerToDaemonMessage](100, OverflowStrategy.fail)
+
+    Flow.wrap(in, out)(Keep.none)
+  }
+
+  def injectMessage(message: Any): Unit = mainActor ! message // non-streams interface
 
 }
 

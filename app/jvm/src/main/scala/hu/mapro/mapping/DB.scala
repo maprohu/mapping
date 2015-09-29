@@ -12,6 +12,14 @@ import slick.jdbc.meta.MTable
 import scala.concurrent.{Future, Await}
 import scala.util.Properties
 
+trait DB {
+
+  def allGpsTracks : Future[Seq[(Track, String)]]
+
+  def saveGpsTrack(data: Array[Byte]) : Future[(Int, String)]
+  def deleteGpsTrack(id: Int) : Future[Any]
+
+}
 /**
  * Created by marci on 23-09-2015.
  */
@@ -67,9 +75,9 @@ class DBPostgres extends DB {
 
 
 
-  lazy val allGpsTracks : Future[Seq[Track]] =
+  lazy val allGpsTracks : Future[Seq[(Track, String)]] =
     db.run(gpsTracks.result)
-      .map(tracks => tracks.map(track => Fit.parseGpsTrack(ByteSource.wrap(track.data), track.id.get)) )
+      .map(tracks => tracks.map(track => (Fit.parseGpsTrack(ByteSource.wrap(track.data), track.id.get), track.hash)) )
 
 
   def saveGpsTrack(data: Array[Byte]): Future[Int] = {

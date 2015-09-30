@@ -1,7 +1,8 @@
 package hu.mapro.mapping.daemon
 
 import java.io.File
-import javax.websocket.ClientEndpointConfig
+import java.net.URI
+import javax.websocket.{ClientEndpointConfig, Endpoint, EndpointConfig, Session}
 
 import com.github.kxbmap.configs._
 import com.typesafe.config.ConfigFactory
@@ -9,7 +10,9 @@ import hu.mapro.mapping.api.Util
 import monifu.concurrent.Implicits.globalScheduler
 import monifu.reactive.Observable
 import org.glassfish.tyrus.client.ClientManager
+import org.glassfish.tyrus.client.ClientManager.ReconnectHandler
 
+import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.io.StdIn
 
@@ -23,6 +26,7 @@ object DaemonMain extends App {
   val fitPath = config.get[List[String]]("fitPath")
   val checkInterval = config.get[Duration]("checkInterval").asInstanceOf[FiniteDuration]
   val waitBeforeInput = config.get[Duration]("waitBeforeInput").asInstanceOf[FiniteDuration]
+  val serverUrl = config.get[String]("serverUrl")
 
   println(fitPath)
   println(checkInterval)
@@ -45,9 +49,17 @@ object DaemonMain extends App {
   Thread.sleep(waitBeforeInput.toMillis)
   StdIn.readLine()
 
-  def connect = {
+  def connect : Future[Session] = Future {
     val wscfg = ClientEndpointConfig.Builder.create().build()
     val client = ClientManager.createClient()
-
+    val rh = new ReconnectHandler()
+    client.connectToServer(
+      new Endpoint() {
+        override def onOpen(session: Session, config: EndpointConfig): Unit = {
+        }
+      },
+      wscfg,
+      new URI(serverUrl)
+    )
   }
 }

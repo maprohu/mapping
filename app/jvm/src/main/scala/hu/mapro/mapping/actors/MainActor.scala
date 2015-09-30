@@ -3,6 +3,7 @@ package hu.mapro.mapping.actors
 import akka.actor._
 import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping.actors.DBActor._
+import hu.mapro.mapping.api.DaemonApi.OfferGpsTrackHash
 
 object MainActor {
   case class NewClient(subscriber: ActorRef)
@@ -18,7 +19,7 @@ object MainActor {
 
 }
 
-class MainActor extends Actor {
+class MainActor extends Actor with ActorLogging {
 
   import MainActor._
 
@@ -47,6 +48,9 @@ class MainActor extends Actor {
 
     case msg:DeleteTrack =>
       db ! msg
+
+    case OfferGpsTrackHash(hash) =>
+      db ! GpsTrackOffered(hash, sender)
 
 
     case ClientLeft() ⇒ //sendAdminMessage(s"$person left!")

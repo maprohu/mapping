@@ -3,7 +3,7 @@ package hu.mapro.mapping.daemon
 import java.io.File
 import java.nio.file.{Files, Paths}
 
-import akka.actor.{Actor, ActorLogging, Props}
+import akka.actor.{Cancellable, Actor, ActorLogging, Props}
 import com.github.kxbmap.configs._
 import hu.mapro.mapping.api.DaemonApi.{AcceptGpsTrackHash, GarminImg, OfferGpsTrackHash, UploadGpsTrack}
 import hu.mapro.mapping.api.Util
@@ -28,16 +28,21 @@ class DaemonActor extends Actor with ActorLogging {
   val imgFile = config.get[String]("imgFile")
   val checkInterval = config.get[Duration]("checkInterval").asInstanceOf[FiniteDuration]
 
-  context.system.scheduler.schedule(
-    0 millis,
-    checkInterval,
-    self,
-    Check
-  )
 
-  override def receive: Receive = checking
+  override def receive: Receive = waitingForConnection
 
-  val checking : Receive = {
+  val waitingForConnection : Receive =  {
+    case Connected =>
+      val checkTask = context.system.scheduler.schedule(
+        0 millis,
+        checkInterval,
+        self,
+        Check
+      )
+      context.become(checking(checkTask))
+  }
+
+  def checking(checkTask: Cancellable) : Receive = {
     case Check =>
       log.info("Check triggered...")
       val files = for {
@@ -52,10 +57,11 @@ class DaemonActor extends Actor with ActorLogging {
           hash -> fitFile
       }
 
-      context.become(hashesSent(files.toMap) orElse checking)
+      context.become(hashesSent(files.toMap) orElse checking(checkTask))
     case GarminImg(data) =>
       Try(Files.write(Paths.get(imgFile), data))
-
+    case Disconnected =>
+      context.become(waitingForConnection)
   }
 
   def hashesSent(fileMap: Map[String, File]) : Receive = {
@@ -63,11 +69,11 @@ class DaemonActor extends Actor with ActorLogging {
       fileMap.get(hash).foreach { f =>
         socket ! UploadGpsTrack(Files.readAllBytes(f.toPath))
       }
-
-
   }
 }
 
 object DaemonActor {
   object Check
+  object Connected
+  object Disconnected
 }

@@ -36,6 +36,7 @@ object App extends MainServerModule with Directives {
     val route = {
       get {
         webservice.route ~
+        daemonService.route ~
         pathSingleSlash{
           complete {
             HttpEntity(

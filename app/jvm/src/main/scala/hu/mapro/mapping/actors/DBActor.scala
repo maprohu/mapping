@@ -16,7 +16,7 @@ object DBActor {
 
 }
 
-class DBActor extends Actor with Stash {
+class DBActor extends Actor with Stash with ActorLogging {
 
   import DBActor._
   import MainActor._
@@ -64,6 +64,7 @@ class DBActor extends Actor with Stash {
         context.parent ! ToAllClients(msg)
         context.become(working(db, gpsTracks -- trackIds))
       case GpsTrackOffered(hash, from) =>
+        log.debug("Gps track offered: {}", hash)
         if (!hashSet.contains(hash)) from ! AcceptGpsTrackHash(hash)
 
 

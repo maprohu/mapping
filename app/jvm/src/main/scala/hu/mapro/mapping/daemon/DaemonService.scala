@@ -3,6 +3,7 @@ package hu.mapro.mapping.daemon
 import java.util.Date
 
 import akka.actor.ActorSystem
+import akka.event.Logging
 import akka.http.scaladsl.model.ws._
 import akka.http.scaladsl.server.Directives
 import akka.stream.Materializer
@@ -21,10 +22,12 @@ import scala.concurrent.duration._
  * Created by pappmar on 29/09/2015.
  */
 class DaemonService(
+  actorSystem: ActorSystem,
   mappingClients: MappingClients,
   materializer: Materializer
 ) extends Directives {
   implicit val mat = materializer
+  private var log = Logging(actorSystem, this)
 
   def route =
     path("daemon") {

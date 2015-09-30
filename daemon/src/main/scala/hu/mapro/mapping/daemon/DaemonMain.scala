@@ -6,18 +6,17 @@ import javax.websocket.ClientEndpointConfig
 import com.github.kxbmap.configs._
 import com.typesafe.config.ConfigFactory
 import hu.mapro.mapping.api.Util
+import monifu.concurrent.Implicits.globalScheduler
 import monifu.reactive.Observable
 import org.glassfish.tyrus.client.ClientManager
 
-import scala.concurrent.duration.{FiniteDuration, Duration}
-import monifu.concurrent.Implicits.globalScheduler
-
+import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.io.StdIn
 
 /**
  * Created by pappmar on 29/09/2015.
  */
-object Daemon extends App {
+object DaemonMain extends App {
 
   val config = ConfigFactory.load()
 
@@ -49,7 +48,6 @@ object Daemon extends App {
   def connect = {
     val wscfg = ClientEndpointConfig.Builder.create().build()
     val client = ClientManager.createClient()
-    client.conn
 
   }
 }

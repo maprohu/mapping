@@ -1,8 +1,7 @@
-import org.scalajs.sbtplugin.cross.CrossProject
-import sbt._
-import Keys._
-import org.scalajs.sbtplugin.ScalaJSPlugin
 import org.scalajs.sbtplugin.ScalaJSPlugin.autoImport._
+import org.scalajs.sbtplugin.cross.CrossProject
+import sbt.Keys._
+import sbt._
 
 object Deps {
 
@@ -59,7 +58,9 @@ object Deps {
     "com.github.kxbmap" %% "configs" % "0.2.5",
     "com.typesafe" % "config" % "1.3.0",
     "org.monifu" %% "monifu" % "1.0-RC3",
-    "org.glassfish.tyrus.bundles" % "tyrus-standalone-client" % "1.12"
+    "org.glassfish.tyrus.bundles" % "tyrus-standalone-client" % "1.12",
+    "com.typesafe.akka" % "akka-actor_2.11" % "2.3.14",
+    "com.softwaremill.macwire" %% "macros" % "2.0.0"
 
   )
   val apiDependencies = Seq(

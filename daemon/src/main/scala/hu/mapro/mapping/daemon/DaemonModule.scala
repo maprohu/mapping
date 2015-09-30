@@ -1,6 +1,7 @@
 package hu.mapro.mapping.daemon
 
 import akka.actor.ActorSystem
+import com.softwaremill.macwire._
 
 /**
  * Created by pappmar on 30/09/2015.

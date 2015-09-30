@@ -59,8 +59,10 @@ object Deps {
     "com.typesafe" % "config" % "1.3.0",
     "org.monifu" %% "monifu" % "1.0-RC3",
     "org.glassfish.tyrus.bundles" % "tyrus-standalone-client" % "1.12",
-    "com.typesafe.akka" % "akka-actor_2.11" % "2.3.14",
-    "com.softwaremill.macwire" %% "macros" % "2.0.0"
+    "com.typesafe.akka" %% "akka-actor" % "2.3.14",
+    "com.softwaremill.macwire" %% "macros" % "2.0.0",
+    "com.lihaoyi" %% "upickle" % "0.3.6"
+
 
   )
   val apiDependencies = Seq(

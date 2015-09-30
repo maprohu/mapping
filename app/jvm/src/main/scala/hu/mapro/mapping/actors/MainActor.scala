@@ -19,6 +19,7 @@ object MainActor {
 }
 
 class MainActor extends Actor {
+
   import MainActor._
 
   val db = context.actorOf(Props[DBActor], "db")

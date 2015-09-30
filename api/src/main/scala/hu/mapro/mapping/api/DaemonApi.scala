@@ -10,6 +10,9 @@ object DaemonApi {
   sealed trait ServerToDaemonMessage extends Message
   case class OfferGpsTrackHash(hash: String) extends DaemonToServerMessage
   case class AcceptGpsTrackHash(hash: String) extends ServerToDaemonMessage
+  case class UploadGpsTrack(data: Array[Byte])
+  case class GarminImg(data: Array[Byte]) extends ServerToDaemonMessage
+
 
 
 

@@ -5,17 +5,21 @@ import java.nio.ByteBuffer
 import javax.websocket.MessageHandler.Whole
 import javax.websocket._
 
-import akka.actor.{Actor, ActorLogging}
+import akka.actor.{Actor, ActorLogging, Stash}
+import akka.pattern._
 import com.github.kxbmap.configs._
 import hu.mapro.mapping.api.DaemonApi.{DaemonToServerMessage, GarminImg, ServerToDaemonMessage, UploadGpsTrack}
 import org.glassfish.tyrus.client.ClientManager.ReconnectHandler
 import org.glassfish.tyrus.client.{ClientManager, ClientProperties}
 
+import scala.concurrent.{Future, Promise}
+
 /**
  * Created by pappmar on 30/09/2015.
  */
-class DaemonSocketClientActor extends Actor with ActorLogging {
+class DaemonSocketClientActor extends Actor with Stash with ActorLogging {
   import DaemonSocketClientActor._
+  import context.dispatcher
 
   val serverUrl = context.system.settings.config.get[String]("serverUrl")
 
@@ -40,13 +44,11 @@ class DaemonSocketClientActor extends Actor with ActorLogging {
         log.info("Connected to {}", serverUrl)
         session.addMessageHandler(classOf[String], new Whole[String] {
           override def onMessage(message: String): Unit = {
-            log.debug("Message received: {}", message)
             context.parent ! upickle.default.read[ServerToDaemonMessage](message)
           }
         })
         session.addMessageHandler(classOf[Array[Byte]], new Whole[Array[Byte]] {
           override def onMessage(message: Array[Byte]): Unit = {
-            log.debug("Message received: {}", message)
             context.parent ! GarminImg(message)
           }
         })
@@ -61,24 +63,59 @@ class DaemonSocketClientActor extends Actor with ActorLogging {
     new URI(serverUrl)
   )
 
+  def send(session: Session, f: (RemoteEndpoint.Async, SendHandler) => Unit) : Future[Sent.type] = {
+    val p = Promise[Sent.type]()
+    f(session.getAsyncRemote, new SendHandler {
+      override def onResult(result: SendResult): Unit = {
+        if (result.isOK) p.success(Sent)
+        else p.failure(result.getException)
+      }
+    })
+    p.future
+      .recover({case ex => log.error(ex, "error sending msg"); Sent})
+  }
+
+  def sendBinary(session: Session, data: ByteBuffer) : Future[Sent.type] =
+    send(session, _.sendBinary(data, _))
+
+  def sendText(session: Session, data: String) : Future[Sent.type] =
+    send(session, _.sendText(data, _))
+
   val disconnected : Receive = {
     case Connect(session) =>
+      unstashAll()
       context.parent ! DaemonActor.Connected
-      context.become(connected(session) orElse disconnected)
-
+      context.become(connected(session))
   }
 
 
   def connected(session: Session) : Receive = {
-    case msg:DaemonToServerMessage =>
-      session.getBasicRemote.sendText(upickle.default.write(msg))
-    case UploadGpsTrack(data) =>
-      session.getBasicRemote.sendBinary(ByteBuffer.wrap(data))
+    ({
+      case msg:DaemonToServerMessage =>
+        sendText(session, upickle.default.write(msg))
+          .pipeTo(self)
+        context.become(sending(session))
+      case UploadGpsTrack(data) =>
+        sendBinary(session, ByteBuffer.wrap(data))
+          .pipeTo(self)
+        context.become(sending(session))
 
-    case Disconnect =>
-      context.parent ! DaemonActor.Disconnected
-      context.become(disconnected)
+      case Disconnect =>
+        context.parent ! DaemonActor.Disconnected
+        context.become(disconnected)
+    }:Receive) orElse disconnected
+  }
 
+  def sending(session: Session) : Receive = {
+    ({
+      case msg:DaemonToServerMessage =>
+        stash()
+      case msg:UploadGpsTrack =>
+        stash()
+      case Sent =>
+        unstashAll()
+        context.become(connected(session))
+    }:Receive) orElse connected(session)
   }
 
   override def receive: Receive = disconnected
@@ -87,4 +124,5 @@ class DaemonSocketClientActor extends Actor with ActorLogging {
 object DaemonSocketClientActor {
   case class Connect(session: Session)
   object Disconnect
+  object Sent
 }

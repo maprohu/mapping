@@ -11,7 +11,7 @@ import hu.mapro.mapping.api.DaemonApi.{AcceptGpsTrackHash, ConfirmGpsTrackHash}
 object DBActor {
   case class Deps(db: DB, gspTracks: Seq[(Track, String)])
   case class InitClient(client: ActorRef)
-  case class GpsTrackSaved(track: Track, hash: String)
+  case class GpsTrackSaved(track: Track, hash: String, confirmTo: Option[ActorRef])
   case class GpsTrackOffered(hash: String, from: ActorRef)
 
   object GetAllTracks
@@ -45,18 +45,20 @@ class DBActor extends Actor with Stash with ActorLogging {
         context.parent ! ToClient(client, GpsTracksAdded(tracksSeq))
         context.parent ! ClientInitialized(client)
       case GpsTrackUploaded(msg) =>
+        val replyTo = sender()
         db
           .saveGpsTrack(msg)
           .map{case (id, hash) =>
-          GpsTrackSaved(Track(Fit.parseGpsPositions(ByteSource.wrap(msg)), id), hash)
+          GpsTrackSaved(Track(Fit.parseGpsPositions(ByteSource.wrap(msg)), id), hash, Some(replyTo))
         }
           .pipeTo(self)
-      case GpsTrackSaved(track, hash) =>
+      case GpsTrackSaved(track, hash, replyTo) =>
         context.parent ! GpsTracksChanged
         context.parent !
           ToAllClients(
             GpsTracksAdded(Seq(track))
           )
+        replyTo.foreach(_ ! ConfirmGpsTrackHash(hash))
         context.become(working(db, gpsTracks + (track.id -> (track, hash))))
       case DeleteTrack(trackId) =>
         db

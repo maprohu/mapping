@@ -23,7 +23,7 @@ class Mkgmap(actorSystem: ActorSystem) {
 
   val GF = new GeometryFactory()
 
-  def generateImg(tracks: Seq[Track], bounds: Messaging.Polygon): Future[ByteSource] = Future({
+  def generateImg(tracks: Seq[Track], bounds: Messaging.Polygon): Future[Option[ByteSource]] = Future({
     log.debug("Generating IMG...")
     val polygon = GF.createPolygon(((bounds.last +: bounds) map { pos => new Coordinate(pos.lat, pos.lon)}) .toArray)
 
@@ -40,36 +40,41 @@ class Mkgmap(actorSystem: ActorSystem) {
       removeOuts( positions.iterator zip posKeep, Seq() )
     }
 
-    log.debug("creating tmp input files for mkgmap")
-    log.debug("mkgmap: osm")
-    val tmpOsmXml = File.createTempFile("img", ".osm")
-    XML.save(tmpOsmXml.getAbsolutePath, OSM.xml(result, "cycleway"))
+    if (result.flatten.isEmpty) {
+      log.info("Nothing to be displayed on generated map")
+      None
+    }
+    else {
+      log.debug("creating tmp input files for mkgmap")
+      log.debug("mkgmap: osm")
+      val tmpOsmXml = File.createTempFile("img", ".osm")
+      XML.save(tmpOsmXml.getAbsolutePath, OSM.xml(result, "cycleway"))
 
-//    val fos = new FileOutputStream(tmpOsmXml)
-//    val wr = Channels.newWriter(fos.getChannel, "UTF-8")
-//    ultimately(wr.close())(
-//      XML.write(
-//        wr,
-//        OSM.xml(result, "cycleway"),
-//        "UTF-8",
-//        true,
-//        null
-//      )
-//    )
+      //    val fos = new FileOutputStream(tmpOsmXml)
+      //    val wr = Channels.newWriter(fos.getChannel, "UTF-8")
+      //    ultimately(wr.close())(
+      //      XML.write(
+      //        wr,
+      //        OSM.xml(result, "cycleway"),
+      //        "UTF-8",
+      //        true,
+      //        null
+      //      )
+      //    )
 
-    log.debug("mkgmap: style")
-    val tmpStyle = File.createTempFile("imgstyle", ".zip")
-    Resources.asByteSource(Resources.getResource("mapstyle.zip"))
-      .copyTo(com.google.common.io.Files.asByteSink(tmpStyle))
+      log.debug("mkgmap: style")
+      val tmpStyle = File.createTempFile("imgstyle", ".zip")
+      Resources.asByteSource(Resources.getResource("mapstyle.zip"))
+        .copyTo(com.google.common.io.Files.asByteSink(tmpStyle))
 
-    log.debug("mkgmap: typ")
-    val tmpTyp = File.createTempFile("imgtyp", ".typ")
-    Resources.asByteSource(Resources.getResource("mapstyle.typ"))
-      .copyTo(com.google.common.io.Files.asByteSink(tmpTyp))
+      log.debug("mkgmap: typ")
+      val tmpTyp = File.createTempFile("imgtyp", ".typ")
+      Resources.asByteSource(Resources.getResource("mapstyle.typ"))
+        .copyTo(com.google.common.io.Files.asByteSink(tmpTyp))
 
-    val tmpOsmOut = Files.createTempDirectory("osmOut")
+      val tmpOsmOut = Files.createTempDirectory("osmOut")
 
-    val mkgparams = Seq(
+      val mkgparams = Seq(
         s"--output-dir=${tmpOsmOut.toFile.getAbsolutePath}",
         s"--style-file=${tmpStyle.getAbsolutePath}",
         "--style=cycling",
@@ -79,27 +84,30 @@ class Mkgmap(actorSystem: ActorSystem) {
         s"--input-file=${tmpOsmXml.getAbsolutePath}",
         s"--input-file=${tmpTyp.getAbsolutePath}"
       )
-    log.info("Running mkgmap with parameters: {}", mkgparams)
-    uk.me.parabola.mkgmap.main.Main.mainNoSystemExit(
-      mkgparams.toArray
-    )
-
-    tmpStyle.delete()
-    tmpTyp.delete()
-    tmpOsmXml.delete()
-
-    val b =
-      com.google.common.io.Files.toByteArray(
-        tmpOsmOut.resolve("gmapsupp.img").toFile
+      log.info("Running mkgmap with parameters: {}", mkgparams)
+      uk.me.parabola.mkgmap.main.Main.mainNoSystemExit(
+        mkgparams.toArray
       )
 
-//    Files.walkFileTree(tmpOsmOut, new SimpleFileVisitor[Path] {
-//      override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
-//        Files.deleteIfExists(file)
-//        super.visitFile(file, attrs)
-//      }
-//    })
-    ByteSource.wrap(b)
+      tmpStyle.delete()
+      tmpTyp.delete()
+      tmpOsmXml.delete()
+
+      val b =
+        com.google.common.io.Files.toByteArray(
+          tmpOsmOut.resolve("gmapsupp.img").toFile
+        )
+
+      //    Files.walkFileTree(tmpOsmOut, new SimpleFileVisitor[Path] {
+      //      override def visitFile(file: Path, attrs: BasicFileAttributes): FileVisitResult = {
+      //        Files.deleteIfExists(file)
+      //        super.visitFile(file, attrs)
+      //      }
+      //    })
+      Some(ByteSource.wrap(b))
+
+    }
+
   }).andThen{case Failure(ex) => log.error(ex, "error generating img")}
 
 }

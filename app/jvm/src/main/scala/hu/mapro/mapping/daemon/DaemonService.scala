@@ -23,6 +23,8 @@ class DaemonService(
 ) extends Directives {
   implicit val mat = materializer
 
+  private val log = Logging(actorSystem, "daemonFlow")
+
   def route =
     path("daemon") {
       handleWebsocketMessages(websocketDaemonFlow())
@@ -45,6 +47,7 @@ class DaemonService(
       .via(mappingClients.daemonFlow()) // ... and route them through the chatFlow ...
       .map {
       case GarminImg(data) =>
+        log.debug("Sending Garmin IMG to daemon.")
         BinaryMessage.Strict(ByteString(data))
       case msg:ServerToDaemonMessage =>
         TextMessage.Strict(upickle.default.write(msg)) // ... pack outgoing messages into WS JSON messages ...
@@ -56,9 +59,7 @@ class DaemonService(
   def reportErrorsFlow[T]: Flow[T, T, Unit] =
     Flow[T]
       .transform(() => new PushStage[T, T] {
-      private val log = Logging(actorSystem, "daemonFlow")
       def onPush(elem: T, ctx: Context[T]): SyncDirective = {
-        log.debug("To daemon: {}", elem)
         ctx.push(elem)
       }
 

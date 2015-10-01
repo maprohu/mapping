@@ -63,8 +63,12 @@ class DaemonActor extends Actor with ActorLogging {
         processFiles(checkTask, files.toMap, done)
       case GarminImg(data) =>
         log.info("Receveived Garmin IMG file.")
-        for (imgFile <- imgFiles) {
-          Try(Files.write(Paths.get(imgFile), data))
+        for (
+          imgFile <- imgFiles
+          if new File(imgFile).getParentFile.exists()
+        ) {
+          val result = Try(Files.write(Paths.get(imgFile), data))
+          log.info("Result of saving Garming IMG file: {}", result)
         }
       case Disconnected =>
         checkTask.cancel()

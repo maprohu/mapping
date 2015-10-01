@@ -42,10 +42,10 @@ class MainActor extends Actor with ActorLogging {
     case ToAllClients(msg) => clients.foreach(_ ! msg)
 
     case msg:GpsTrackUploaded =>
-      db ! msg
+      db.tell(msg, sender())
 
     case msg:RequestGarminImg =>
-      osm ! msg
+      osm.tell(msg, sender())
     case msg:FetchCycleways =>
       osm ! msg
 

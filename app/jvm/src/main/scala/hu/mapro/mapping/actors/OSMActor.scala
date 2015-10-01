@@ -116,18 +116,21 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
 
     case RequestGarminImg(reqHash) =>
       log.debug("Garming IMG requested: {}", reqHash)
-      if (imgHash != reqHash) {
+      if (reqHash.isEmpty || imgHash != reqHash) {
         val replyTo = sender()
         for {
           cw <- cycleways
           tracks <- (db ? GetAllTracks).mapTo[Seq[Track]]
-          img <- mkgmap.generateImg(tracks, cw.bounds)
+          Some(img) <- mkgmap.generateImg(tracks, cw.bounds)
         } {
           self ! GarminImgGenerated(img.read(), replyTo)
         }
+      } else {
+        log.info("Garmin IMG file of requestor is up to date: {}", reqHash)
       }
 
     case GarminImgGenerated(data, requestor) =>
+      log.info("Sending generated Garming IMG file to requestor.")
       requestor ! GarminImg(data)
       context.become(working(cycleways, Some(Util.hash(data))))
 

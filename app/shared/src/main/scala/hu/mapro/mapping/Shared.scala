@@ -12,7 +12,7 @@ trait LatLon {
 case class Coordinates(lat: Double, lon: Double) extends LatLon
 case class Position(lat: Double, lon: Double, timestamp: Long) extends LatLon
 case class Track(positions: Seq[Position], id : Int)
-case class Cycleways(paths: Seq[Seq[Coordinates]], bounds: Polygon)
+case class Cycleways(paths: Seq[Seq[Coordinates]], bounds: Seq[Coordinates])
 
 
 
@@ -36,7 +36,6 @@ object Messaging {
   sealed trait ClientToServerMessage
   case class DeleteTrack(id: Int) extends ClientToServerMessage
   case class FetchCycleways(polygon: Polygon) extends ClientToServerMessage
-  case class UpdateAOI(aoi: Polygon) extends ClientToServerMessage
 }
 
 

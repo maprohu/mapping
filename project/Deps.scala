@@ -22,7 +22,10 @@ object Deps {
     "com.garmin" % "fit" % "16.10",
     "com.jsuereth" %% "scala-arm" % "1.4",
     "com.vividsolutions" % "jts" % "1.13",
+
     "uk.me.parabola" % "mkgmap" % "r3643",
+    "it.unimi.dsi" % "fastutil" % "6.5.15",
+
     "com.typesafe.slick" %% "slick" % "3.0.3",
     "org.postgresql" % "postgresql" % "9.4-1203-jdbc42",
     "com.google.guava" % "guava" % "18.0",

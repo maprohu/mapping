@@ -52,6 +52,7 @@ class DBActor extends Actor with Stash with ActorLogging {
         }
           .pipeTo(self)
       case GpsTrackSaved(track, hash) =>
+        context.parent ! GpsTracksChanged
         context.parent !
           ToAllClients(
             GpsTracksAdded(Seq(track))
@@ -63,6 +64,7 @@ class DBActor extends Actor with Stash with ActorLogging {
           .map { _ => GpsTracksRemoved(Seq(trackId)) }
           .pipeTo(self)
       case msg @ GpsTracksRemoved(trackIds) =>
+        context.parent ! GpsTracksChanged
         context.parent ! ToAllClients(msg)
         context.become(working(db, gpsTracks -- trackIds))
       case GpsTrackOffered(hash, from) =>
@@ -72,6 +74,7 @@ class DBActor extends Actor with Stash with ActorLogging {
 
 
       case GetAllTracks =>
+        log.debug("All tracks requested.")
         sender ! tracksSeq
 
     }

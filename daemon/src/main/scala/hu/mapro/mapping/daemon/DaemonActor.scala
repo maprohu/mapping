@@ -29,43 +29,47 @@ class DaemonActor extends Actor with ActorLogging {
   val checkInterval = config.get[Duration]("checkInterval").asInstanceOf[FiniteDuration]
 
 
-  override def receive: Receive = waitingForConnection(Set())
+  override def receive: Receive = waitingForConnection(Set(), None)
 
-  def waitingForConnection(done: Set[String]) : Receive =  {
+  def waitingForConnection(done: Set[String], checkTask: Option[Cancellable]) : Receive =  {
     case Connected =>
-      val checkTask = context.system.scheduler.schedule(
+      checkTask.foreach(_.cancel())
+      val newCheckTask = context.system.scheduler.schedule(
         0 millis,
         checkInterval,
         self,
         Check
       )
-      context.become(checking(checkTask, done))
+      context.become(checking(newCheckTask, done))
   }
 
   def checking(checkTask: Cancellable, done: Set[String]) : Receive = {
-    case Check =>
-      log.info("Check triggered...")
-      val files = for {
-        dirName <- fitPath
-        dirFile = new File(dirName)
-        if dirFile.exists() && dirFile.isDirectory
-        fitFile <- dirFile.listFiles()
-        hash = Util.hash(fitFile)
-        if !done.contains(hash)
-      } yield {
-          log.info("Offering file {} with hash: {}", fitFile, hash)
-          socket ! OfferGpsTrackHash(hash)
-          hash -> fitFile
-      }
+    ({
+      case Check =>
+        log.info("Check triggered...")
+        val files = for {
+          dirName <- fitPath
+          dirFile = new File(dirName)
+          if dirFile.exists() && dirFile.isDirectory
+          fitFile <- dirFile.listFiles()
+          hash = Util.hash(fitFile)
+          if !done.contains(hash)
+        } yield {
+            log.info("Offering file {} with hash: {}", fitFile, hash)
+            socket ! OfferGpsTrackHash(hash)
+            hash -> fitFile
+          }
 
-      context.become(hashesSent(checkTask, files.toMap, done) orElse checking(checkTask, done))
-    case GarminImg(data) =>
-      log.info("Receveived Garmin IMG file.")
-      for (imgFile <- imgFiles) {
-        Try(Files.write(Paths.get(imgFile), data))
-      }
-    case Disconnected =>
-      context.become(waitingForConnection(done))
+        processFiles(checkTask, files.toMap, done)
+      case GarminImg(data) =>
+        log.info("Receveived Garmin IMG file.")
+        for (imgFile <- imgFiles) {
+          Try(Files.write(Paths.get(imgFile), data))
+        }
+      case Disconnected =>
+        checkTask.cancel()
+        context.become(waitingForConnection(done, None))
+    }:Receive) orElse waitingForConnection(done, Some(checkTask))
   }
 
   def hashesSent(
@@ -73,33 +77,39 @@ class DaemonActor extends Actor with ActorLogging {
     fileMap: Map[String, File],
     done: Set[String]
   ) : Receive = {
-    case AcceptGpsTrackHash(hash) =>
-      fileMap.get(hash).foreach { f =>
-        log.info("Uploading file {} with hash {}", f, hash)
-        socket ! UploadGpsTrack(Files.readAllBytes(f.toPath))
-      }
-    case ConfirmGpsTrackHash(hash) =>
-      log.debug("Gps Track confirmed: {}", hash)
-      val newFileMap = fileMap - hash
-      val newDone = done + hash
-      if (newFileMap.isEmpty) {
-        for {
-          imgFile <- imgFiles
-          file = new File(imgFile)
-          parentFile = file.getParentFile
-          if parentFile.exists() && parentFile.isDirectory
-        } {
-          log.info("Requesting Garming IMG")
-          if (file.exists()) {
-            socket ! RequestGarminImg(Some(Util.hash(file)))
-          } else {
-            socket ! RequestGarminImg(None)
-          }
+    ({
+      case AcceptGpsTrackHash(hash) =>
+        fileMap.get(hash).foreach { f =>
+          log.info("Uploading file {} with hash {}", f, hash)
+          socket ! UploadGpsTrack(Files.readAllBytes(f.toPath))
         }
-        context.become(checking(checkTask, newDone))
-      } else {
-        context.become(hashesSent(checkTask, newFileMap, newDone))
+      case ConfirmGpsTrackHash(hash) =>
+        log.debug("Gps Track confirmed: {}", hash)
+        val newFileMap = fileMap - hash
+        val newDone = done + hash
+        processFiles(checkTask, newFileMap, newDone)
+    }:Receive) orElse checking(checkTask, done)
+  }
+
+  def processFiles(checkTask: Cancellable, fileMap: Map[String, File], done: Set[String]): Unit = {
+    if (fileMap.isEmpty) {
+      for {
+        imgFile <- imgFiles
+        file = new File(imgFile)
+        parentFile = file.getParentFile
+        if parentFile.exists() && parentFile.isDirectory
+      } {
+        log.info("Requesting Garming IMG")
+        if (file.exists()) {
+          socket ! RequestGarminImg(Some(Util.hash(file)))
+        } else {
+          socket ! RequestGarminImg(None)
+        }
       }
+      context.become(checking(checkTask, done))
+    } else {
+      context.become(hashesSent(checkTask, fileMap, done))
+    }
   }
 }
 

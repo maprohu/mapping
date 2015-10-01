@@ -3,7 +3,7 @@ package hu.mapro.mapping.actors
 import akka.actor._
 import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping.actors.DBActor._
-import hu.mapro.mapping.api.DaemonApi.OfferGpsTrackHash
+import hu.mapro.mapping.api.DaemonApi.{OfferGpsTrackHash, RequestGarminImg}
 
 object MainActor {
   case class NewClient(subscriber: ActorRef)
@@ -13,6 +13,7 @@ object MainActor {
   case class ToAllClients(msg: ServerToClientMessage)
   case class GpsTrackUploaded(data: Array[Byte])
   object UploadComplete
+  object GpsTracksChanged
 
 
   case class ClientInitialized(client: ActorRef)
@@ -25,7 +26,7 @@ class MainActor extends Actor with ActorLogging {
 
   val db = context.actorOf(Props[DBActor], "db")
 
-  val osm = context.actorOf(Props[OSMActor], "osm")
+  val osm = context.actorOf(Props(classOf[OSMActor], db), "osm")
 
   var clients = Set.empty[ActorRef]
 
@@ -43,7 +44,7 @@ class MainActor extends Actor with ActorLogging {
     case msg:GpsTrackUploaded =>
       db ! msg
 
-    case msg:UpdateAOI =>
+    case msg:RequestGarminImg =>
       osm ! msg
     case msg:FetchCycleways =>
       osm ! msg
@@ -53,6 +54,9 @@ class MainActor extends Actor with ActorLogging {
 
     case OfferGpsTrackHash(hash) =>
       db ! GpsTrackOffered(hash, sender)
+
+    case msg@GpsTracksChanged =>
+      osm ! msg
 
 
     case ClientLeft() ⇒ //sendAdminMessage(s"$person left!")

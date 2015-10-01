@@ -8,10 +8,13 @@ import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.pattern._
 import akka.stream.ActorMaterializer
+import akka.util.Timeout
 import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping._
+import hu.mapro.mapping.actors.DBActor.GetAllTracks
 import hu.mapro.mapping.actors.MainActor._
-import hu.mapro.mapping.api.DaemonApi.RequestGarminImg
+import hu.mapro.mapping.api.DaemonApi.{GarminImg, RequestGarminImg}
+import hu.mapro.mapping.api.Util
 import rapture.json.Json
 import rapture.json.jsonBackends.json4s._
 import reactivemongo.api._
@@ -19,6 +22,7 @@ import reactivemongo.api.collections.bson.BSONCollection
 import reactivemongo.bson.{BSONDocument, BSONHandler, _}
 
 import scala.concurrent.Future
+import scala.concurrent.duration._
 import scala.util.{Properties, Random}
 
 /**
@@ -29,6 +33,8 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
   import OSMActor._
   import context.dispatcher
 
+  val mkgmap = new Mkgmap(context.system)
+
   implicit val coordinatesHandler: BSONHandler[BSONDocument, Coordinates] =
     Macros.handler[Coordinates]
   implicit val cyclewaysHandler: BSONHandler[BSONDocument, Cycleways] =
@@ -37,8 +43,8 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
 //    Macros.handler[CyclewaysDB]
   implicit val cyclewaysDBReader = Macros.reader[CyclewaysDB]
   implicit val cyclewaysDBWriter = Macros.writer[CyclewaysDB]
-  implicit val aoiDBReader = Macros.reader[AoiDB]
-  implicit val aoiDBWriter = Macros.writer[AoiDB]
+
+  implicit val timeout = Timeout(5 seconds)
 
   val coll:BSONCollection = {
     val mongoUri = Properties.envOrElse("MONGOLAB_URI", "mongodb://localhost/mapping")
@@ -49,9 +55,10 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
     db.collection("osm")
   }
 
+  private val cyclewaysQuery = BSONDocument("_id" -> Ids.cycleways.toString)
   val loadCycleways = coll
     .find(
-      BSONDocument("_id" -> Ids.cycleways.toString)
+      cyclewaysQuery
     )
     .cursor[CyclewaysDB]()
     .headOption
@@ -68,12 +75,12 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
   def receive = {
     case DataLoaded(cycleways) =>
       unstashAll()
-      context.become(working(cycleways))
+      context.become(working(cycleways, None))
     case _ => stash()
   }
 
 
-  def working(cycleways: Option[Cycleways]) : Receive = {
+  def working(cycleways: Option[Cycleways], imgHash: Option[String]) : Receive = {
     case FetchCycleways(polygon) =>
       fetchCyclewaysOSM(polygon)
         .map(CyclewaysFetched(_))
@@ -82,12 +89,24 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
     case CyclewaysFetched(newCycleways) =>
       log.debug("Processing cycleways...")
       coll.update(
-        BSONDocument("_id" -> Ids.cycleways.toString),
+        cyclewaysQuery,
         CyclewaysDB(newCycleways),
         upsert = true
-      )
+      ).recoverWith({case ex =>
+        log.error(ex, "Error saving cycleways")
+
+        coll.remove(
+          cyclewaysQuery
+        ).flatMap{case y =>
+          coll.update(
+            cyclewaysQuery,
+            CyclewaysDB(newCycleways),
+            upsert = true
+          )
+        }
+      }).onComplete(log.debug("Result of saving cycleways: {}", _))
       context.parent ! ToAllClients(CyclewaysChanged(newCycleways))
-      context.become(working(Some(newCycleways)))
+      context.become(working(Some(newCycleways), None))
 
 
     case NewClient(client) =>
@@ -95,8 +114,25 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
         client ! CyclewaysChanged(_)
       )
 
-    case RequestGarminImg(_) =>
-      db.ask()
+    case RequestGarminImg(reqHash) =>
+      log.debug("Garming IMG requested: {}", reqHash)
+      if (imgHash != reqHash) {
+        val replyTo = sender()
+        for {
+          cw <- cycleways
+          tracks <- (db ? GetAllTracks).mapTo[Seq[Track]]
+          img <- mkgmap.generateImg(tracks, cw.bounds)
+        } {
+          self ! GarminImgGenerated(img.read(), replyTo)
+        }
+      }
+
+    case GarminImgGenerated(data, requestor) =>
+      requestor ! GarminImg(data)
+      context.become(working(cycleways, Some(Util.hash(data))))
+
+    case GpsTracksChanged =>
+      context.become(working(cycleways, None))
 
   }
 
@@ -176,6 +212,7 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
 object OSMActor {
   case class CyclewaysFetched(cycleways: Cycleways)
   case class DataLoaded(cycleways: Option[Cycleways])
+  case class GarminImgGenerated(data: Array[Byte], requestor: ActorRef)
 
   object Ids extends Enumeration {
     val cycleways = Value
@@ -184,4 +221,3 @@ object OSMActor {
 }
 
 case class CyclewaysDB(cycleways: Cycleways)
-case class AoiDB(aoi: Polygon)

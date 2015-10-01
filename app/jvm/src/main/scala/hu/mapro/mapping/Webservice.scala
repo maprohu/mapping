@@ -3,13 +3,14 @@ package hu.mapro.mapping
 import java.util.Date
 
 import akka.actor.ActorSystem
-import akka.http.scaladsl.model.ws.{Message, TextMessage}
+import akka.http.scaladsl.model.ws.{BinaryMessage, Message, TextMessage}
 import akka.http.scaladsl.server.Directives
 import akka.stream.Materializer
 import akka.stream.scaladsl.Flow
 import akka.stream.stage._
+import akka.util.ByteString
 import hu.mapro.mapping.Messaging._
-import hu.mapro.mapping.actors.MainActor.ToAllClients
+import hu.mapro.mapping.actors.MainActor.{GpsTrackUploaded, ToAllClients}
 
 import scala.concurrent.duration._
 
@@ -19,6 +20,7 @@ class Webservice(
   mappingClients: MappingClients
 ) extends Directives {
   import system.dispatcher
+  implicit  val mat = materializer
 
   system.scheduler.schedule(15.second, 15.second) {
     mappingClients.injectMessage(ToAllClients(Tick))
@@ -31,13 +33,18 @@ class Webservice(
 
   def websocketClientFlow(): Flow[Message, Message, Unit] =
     Flow[Message]
-      .collect {
-        case TextMessage.Strict(msg) ⇒
-          pickle.clientToServer(msg) // unpack incoming WS text messages...
-        // This will lose (ignore) messages not received in one chunk (which is
-        // unlikely because chat messages are small) but absolutely possible
-        // FIXME: We need to handle TextMessage.Streamed as well.
-      }
+      .mapAsync(1)({
+//        case msg:BinaryMessage =>
+//          msg
+//            .dataStream
+//            .runFold(ByteString.empty)(_ ++ _)
+//            .map(bs => GpsTrackUploaded(bs.toArray))
+        case msg:TextMessage =>
+          msg
+            .textStream
+            .runFold("")(_ ++ _)
+            .map(pickle.clientToServer(_))
+      })
       .via(mappingClients.clientFlow()) // ... and route them through the chatFlow ...
       .map {
         case message:ServerToClientMessage => {

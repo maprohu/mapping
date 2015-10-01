@@ -62,18 +62,20 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
     )
     .cursor[CyclewaysDB]()
     .headOption
+    .recover {
+    case ex => log.error(ex, "failed loading cycleways"); None
+    }
+
 
   for {
-    (cycleways) <-
-      for {
-        cycleways <- loadCycleways
-      } yield (cycleways)
+    cycleways <- loadCycleways
   } {
     self ! DataLoaded(cycleways.map(_.cycleways))
   }
 
   def receive = {
     case DataLoaded(cycleways) =>
+      log.debug("Cycleways loaded from database.")
       unstashAll()
       context.become(working(cycleways, None))
     case _ => stash()
@@ -82,6 +84,7 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
 
   def working(cycleways: Option[Cycleways], imgHash: Option[String]) : Receive = {
     case FetchCycleways(polygon) =>
+      log.debug("Fetch cycleways requested")
       fetchCyclewaysOSM(polygon)
         .map(CyclewaysFetched(_))
         .pipeTo(self)

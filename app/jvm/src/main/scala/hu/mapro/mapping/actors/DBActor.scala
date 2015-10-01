@@ -80,8 +80,10 @@ class DBActor extends Actor with Stash with ActorLogging {
         sender ! tracksSeq
 
     }
+
   }
 
+  log.debug("DBActor created.")
 }
 
 

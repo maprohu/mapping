@@ -47,6 +47,7 @@ class MainActor extends Actor with ActorLogging {
     case msg:RequestGarminImg =>
       osm.tell(msg, sender())
     case msg:FetchCycleways =>
+      log.debug("Forwarding message to OSMActor")
       osm ! msg
 
     case msg:DeleteTrack =>

@@ -5,7 +5,7 @@ import akka.pattern.pipe
 import com.google.common.io.ByteSource
 import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping._
-import hu.mapro.mapping.api.DaemonApi.AcceptGpsTrackHash
+import hu.mapro.mapping.api.DaemonApi.{AcceptGpsTrackHash, ConfirmGpsTrackHash}
 
 
 object DBActor {
@@ -66,6 +66,7 @@ class DBActor extends Actor with Stash with ActorLogging {
       case GpsTrackOffered(hash, from) =>
         log.debug("Gps track offered: {}", hash)
         if (!hashSet.contains(hash)) from ! AcceptGpsTrackHash(hash)
+        else from ! ConfirmGpsTrackHash(hash)
 
 
 

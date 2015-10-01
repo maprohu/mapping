@@ -1,23 +1,18 @@
 package hu.mapro.mapping.daemon
 
-import java.util.Date
-
 import akka.actor.ActorSystem
 import akka.event.Logging
 import akka.http.scaladsl.model.ws._
 import akka.http.scaladsl.server.Directives
 import akka.stream.Materializer
-import akka.stream.scaladsl.{Sink, Flow}
+import akka.stream.scaladsl.Flow
 import akka.stream.stage._
 import akka.util.ByteString
 import hu.mapro.mapping.MappingClients
-import hu.mapro.mapping.Messaging._
-import hu.mapro.mapping.actors.MainActor.{GpsTrackUploaded, ToAllClients}
-import akka.pattern._
-import hu.mapro.mapping.api.DaemonApi.{DaemonToServerMessage, ServerToDaemonMessage}
-import scala.concurrent.ExecutionContext.Implicits.global
+import hu.mapro.mapping.actors.MainActor.GpsTrackUploaded
+import hu.mapro.mapping.api.DaemonApi.{DaemonToServerMessage, GarminImg, ServerToDaemonMessage}
 
-import scala.concurrent.duration._
+import scala.concurrent.ExecutionContext.Implicits.global
 /**
  * Created by pappmar on 29/09/2015.
  */
@@ -27,7 +22,6 @@ class DaemonService(
   materializer: Materializer
 ) extends Directives {
   implicit val mat = materializer
-  private var log = Logging(actorSystem, this)
 
   def route =
     path("daemon") {
@@ -50,16 +44,23 @@ class DaemonService(
       })
       .via(mappingClients.daemonFlow()) // ... and route them through the chatFlow ...
       .map {
-      case msg:ServerToDaemonMessage => {
+      case GarminImg(data) =>
+        BinaryMessage.Strict(ByteString(data))
+      case msg:ServerToDaemonMessage =>
         TextMessage.Strict(upickle.default.write(msg)) // ... pack outgoing messages into WS JSON messages ...
-      }
+
+
     }
       .via(reportErrorsFlow) // ... then log any processing errors on stdin
 
   def reportErrorsFlow[T]: Flow[T, T, Unit] =
     Flow[T]
       .transform(() => new PushStage[T, T] {
-      def onPush(elem: T, ctx: Context[T]): SyncDirective = ctx.push(elem)
+      private val log = Logging(actorSystem, "daemonFlow")
+      def onPush(elem: T, ctx: Context[T]): SyncDirective = {
+        log.debug("To daemon: {}", elem)
+        ctx.push(elem)
+      }
 
       override def onUpstreamFailure(cause: Throwable, ctx: Context[T]): TerminationDirective = {
         println(s"WS stream failed with $cause")

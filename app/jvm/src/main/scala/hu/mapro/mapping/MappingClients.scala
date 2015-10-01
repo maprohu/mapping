@@ -3,11 +3,9 @@ package hu.mapro.mapping
 import akka.actor._
 import akka.stream.OverflowStrategy
 import akka.stream.scaladsl._
-import com.google.common.io.ByteSource
-import com.google.common.primitives.Bytes
-import akka.pattern.pipe
 import hu.mapro.mapping.Messaging._
-import hu.mapro.mapping.actors.{MainActor, OSMActor}
+import hu.mapro.mapping.actors.DaemonServerSocketActor.Daemon
+import hu.mapro.mapping.actors.{DaemonServerSocketActor, MainActor}
 import hu.mapro.mapping.api.DaemonApi._
 
 
@@ -39,12 +37,14 @@ class MappingClients(actorSystem: ActorSystem) {
   }
 
   def daemonFlow(): Flow[Any, ServerToDaemonMessage, Unit] = {
+    val daemonActor = actorSystem.actorOf(Props(classOf[DaemonServerSocketActor], mainActor))
     val in =
       Flow[Any]
-        .to(Sink.actorRef[Any](mainActor, ClientLeft()))
+        .to(Sink.actorRef[Any](daemonActor, PoisonPill))
 
     val out =
       Source.actorRef[ServerToDaemonMessage](100, OverflowStrategy.fail)
+        .mapMaterializedValue(daemonActor ! Daemon(_))
 
     Flow.wrap(in, out)(Keep.none)
   }

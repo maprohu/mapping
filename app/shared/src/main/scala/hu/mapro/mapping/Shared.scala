@@ -1,6 +1,6 @@
 package hu.mapro.mapping
 
-import hu.mapro.mapping.Messaging.{Polygon, Cycleways}
+import hu.mapro.mapping.Messaging.{Cycleways, Polygon}
 
 import scala.concurrent.Future
 
@@ -32,10 +32,12 @@ object Messaging {
   case class GpsTracksAdded(tracks: Seq[Track]) extends ServerToClientMessage
   case class GpsTracksRemoved(tracks: Seq[Int]) extends ServerToClientMessage
   case class CyclewaysChanged(cycleways: Cycleways) extends ServerToClientMessage
+  case class AOIUpdated(aoi: Polygon) extends ServerToClientMessage
 
   sealed trait ClientToServerMessage
   case class DeleteTrack(id: Int) extends ClientToServerMessage
   case class FetchCycleways(polygon: Polygon) extends ClientToServerMessage
+  case class UpdateAOI(aoi: Polygon) extends ClientToServerMessage
 }
 
 

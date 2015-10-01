@@ -1,28 +1,24 @@
 package hu.mapro.mapping.actors
 
 import java.net.URLEncoder
-import play.api.libs.iteratee.Iteratee
-import reactivemongo.api._
-import reactivemongo.bson._
 
-import akka.actor.{Stash, Actor}
+import akka.actor.{Actor, Stash}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
-import hu.mapro.mapping.actors.MainActor._
-import hu.mapro.mapping.{Geo, Coordinates}
+import akka.pattern._
+import akka.stream.ActorMaterializer
+import hu.mapro.mapping.Coordinates
 import hu.mapro.mapping.Messaging._
+import hu.mapro.mapping.actors.MainActor._
 import rapture.json.Json
 import rapture.json.jsonBackends.json4s._
+import reactivemongo.api._
 import reactivemongo.api.collections.bson.BSONCollection
-import reactivemongo.bson.{BSONHandler, BSONDocument}
+import reactivemongo.bson.{BSONDocument, BSONHandler, _}
 
 import scala.concurrent.Future
-import scala.util.{Random, Properties}
-import akka.stream.ActorMaterializer
-
-import akka.pattern._
-import scala.collection.JavaConversions._
+import scala.util.{Properties, Random}
 
 /**
  * Created by marci on 26-09-2015.
@@ -38,6 +34,8 @@ class OSMActor extends Actor with Stash {
 //    Macros.handler[CyclewaysDB]
   implicit val cyclewaysDBReader = Macros.reader[CyclewaysDB]
   implicit val cyclewaysDBWriter = Macros.writer[CyclewaysDB]
+  implicit val aoiDBReader = Macros.reader[AoiDB]
+  implicit val aoiDBWriter = Macros.writer[AoiDB]
 
   val coll:BSONCollection = {
     val mongoUri = Properties.envOrElse("MONGOLAB_URI", "mongodb://localhost/mapping")
@@ -48,50 +46,69 @@ class OSMActor extends Actor with Stash {
     db.collection("osm")
   }
 
-  coll
+  val loadCycleways = coll
     .find(
       BSONDocument("_id" -> Ids.cycleways.toString)
     )
     .cursor[CyclewaysDB]()
     .headOption
-    .map(_.map(cwdb => CyclewaysLoaded(cwdb.cycleways)).getOrElse(CyclewaysNotFound))
-    .recover {case _ => CyclewaysNotFound}
-    .pipeTo(self)
+  val loadAOI = coll
+    .find(
+      BSONDocument("_id" -> Ids.aoi.toString)
+    )
+    .cursor[AoiDB]()
+    .headOption
+
+  for {
+    (cycleways, aoi) <-
+      for {
+        cycleways <- loadCycleways
+        aoi <- loadAOI
+      } yield (cycleways, aoi)
+  } {
+    self ! DataLoaded(cycleways.map(_.cycleways), aoi.map(_.aoi))
+  }
 
   def receive = {
-    case CyclewaysNotFound =>
+    case DataLoaded(cycleways, aoi) =>
       unstashAll()
-      context.become(working())
-    case CyclewaysLoaded(cycleways) =>
-      unstashAll()
-      context.become(working(cycleways))
+      context.become(working(cycleways, aoi))
     case _ => stash()
   }
 
-  def withCommon(custom:Receive) : Receive = custom.orElse({
+
+  def working(cycleways: Option[Cycleways], aoi: Option[Polygon]) : Receive = {
     case FetchCycleways(polygon) =>
       fetchCyclewaysOSM(polygon)
-        .map(CyclewaysLoaded(_))
+        .map(CyclewaysFetched(_))
         .pipeTo(self)
-    case CyclewaysLoaded(cycleways) =>
+      
+    case CyclewaysFetched(newCycleways) =>
       coll.update(
         BSONDocument("_id" -> Ids.cycleways.toString),
-        CyclewaysDB(cycleways),
+        CyclewaysDB(newCycleways),
         upsert = true
       )
-      context.parent ! ToAllClients(CyclewaysChanged(cycleways))
-      context.become(working(cycleways))
-  })
+      context.parent ! ToAllClients(CyclewaysChanged(newCycleways))
+      context.become(working(Some(newCycleways), aoi))
 
-  def working() : Receive = withCommon({
+    case UpdateAOI(newAoi) =>
+      coll.update(
+        BSONDocument("_id" -> Ids.aoi.toString),
+        AoiDB(newAoi),
+        upsert = true
+      )
+      context.parent ! ToAllClients(AOIUpdated(newAoi))
+      context.become(working(cycleways, Some(newAoi)))
+
     case NewClient(client) =>
-  })
-
-  def working(cycleways: Cycleways) : Receive = withCommon({
-    case NewClient(client) =>
-      client ! CyclewaysChanged(cycleways)
-
-  })
+      cycleways.foreach(
+        client ! CyclewaysChanged(_)
+      )
+      aoi.foreach(
+        client ! AOIUpdated(_)
+      )
+  }
 
   val overpassServers = Vector(
     "http://overpass.osm.rambler.ru/cgi/interpreter",
@@ -163,13 +180,15 @@ class OSMActor extends Actor with Stash {
 }
 
 object OSMActor {
-  object CyclewaysNotFound
-  case class CyclewaysLoaded(cycleways: Cycleways)
+  case class CyclewaysFetched(cycleways: Cycleways)
+  case class DataLoaded(cycleways: Option[Cycleways], aoi: Option[Polygon])
 
   object Ids extends Enumeration {
     val cycleways = Value
+    val aoi = Value
   }
 
 }
 
 case class CyclewaysDB(cycleways: Cycleways)
+case class AoiDB(aoi: Polygon)

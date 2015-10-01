@@ -43,6 +43,8 @@ class MainActor extends Actor with ActorLogging {
     case msg:GpsTrackUploaded =>
       db ! msg
 
+    case msg:UpdateAOI =>
+      osm ! msg
     case msg:FetchCycleways =>
       osm ! msg
 

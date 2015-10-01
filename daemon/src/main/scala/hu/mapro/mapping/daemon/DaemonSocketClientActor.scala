@@ -38,16 +38,16 @@ class DaemonSocketClientActor extends Actor with ActorLogging {
     new Endpoint() {
       override def onOpen(session: Session, config: EndpointConfig): Unit = {
         log.info("Connected to {}", serverUrl)
-        session.addMessageHandler(new Whole[String] {
+        session.addMessageHandler(classOf[String], new Whole[String] {
           override def onMessage(message: String): Unit = {
+            log.debug("Message received: {}", message)
             context.parent ! upickle.default.read[ServerToDaemonMessage](message)
           }
         })
-        session.addMessageHandler(new Whole[ByteBuffer] {
-          override def onMessage(message: ByteBuffer): Unit = {
-            val b = new Array[Byte](message.remaining())
-            message.get(b)
-            context.parent ! GarminImg(b)
+        session.addMessageHandler(classOf[Array[Byte]], new Whole[Array[Byte]] {
+          override def onMessage(message: Array[Byte]): Unit = {
+            log.debug("Message received: {}", message)
+            context.parent ! GarminImg(message)
           }
         })
         self ! Connect(session)
@@ -64,7 +64,7 @@ class DaemonSocketClientActor extends Actor with ActorLogging {
   val disconnected : Receive = {
     case Connect(session) =>
       context.parent ! DaemonActor.Connected
-      context.become(connected(session))
+      context.become(connected(session) orElse disconnected)
 
   }
 

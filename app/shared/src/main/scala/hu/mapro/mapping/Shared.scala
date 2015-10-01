@@ -31,7 +31,6 @@ object Messaging {
   case class GpsTracksAdded(tracks: Seq[Track]) extends ServerToClientMessage
   case class GpsTracksRemoved(tracks: Seq[Int]) extends ServerToClientMessage
   case class CyclewaysChanged(cycleways: Cycleways) extends ServerToClientMessage
-  case class AOIUpdated(aoi: Polygon) extends ServerToClientMessage
 
   sealed trait ClientToServerMessage
   case class DeleteTrack(id: Int) extends ClientToServerMessage

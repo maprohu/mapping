@@ -13,7 +13,7 @@ import hu.mapro.mapping.Messaging._
 import hu.mapro.mapping._
 import hu.mapro.mapping.actors.DBActor.GetAllTracks
 import hu.mapro.mapping.actors.MainActor._
-import hu.mapro.mapping.api.DaemonApi.{GarminImg, RequestGarminImg}
+import hu.mapro.mapping.api.DaemonApi.{GarminImg, GarminImgUpToDate, RequestGarminImg}
 import hu.mapro.mapping.api.Util
 import rapture.json.Json
 import rapture.json.jsonBackends.json4s._
@@ -127,6 +127,7 @@ class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
         }
       } else {
         log.info("Garmin IMG file of requestor is up to date: {}", reqHash)
+        sender() ! GarminImgUpToDate
       }
 
     case GarminImgGenerated(data, requestor) =>

@@ -70,6 +70,8 @@ class DaemonActor extends Actor with ActorLogging {
           val result = Try(Files.write(Paths.get(imgFile), data))
           log.info("Result of saving Garming IMG file: {}", result)
         }
+      case GarminImgUpToDate =>
+        log.info("Garmin IMG is up to date.")
       case Disconnected =>
         checkTask.cancel()
         context.become(waitingForConnection(done, None))

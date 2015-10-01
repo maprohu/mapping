@@ -14,6 +14,7 @@ object DaemonApi {
   case class ConfirmGpsTrackHash(hash: String) extends ServerToDaemonMessage
   case class UploadGpsTrack(data: Array[Byte])
   case class GarminImg(data: Array[Byte]) extends ServerToDaemonMessage
+  object GarminImgUpToDate extends ServerToDaemonMessage
 
 
 

@@ -14,6 +14,8 @@ object DBActor {
   case class GpsTrackSaved(track: Track, hash: String)
   case class GpsTrackOffered(hash: String, from: ActorRef)
 
+  object GetAllTracks
+
 }
 
 class DBActor extends Actor with Stash with ActorLogging {
@@ -69,6 +71,8 @@ class DBActor extends Actor with Stash with ActorLogging {
         else from ! ConfirmGpsTrackHash(hash)
 
 
+      case GetAllTracks =>
+        sender ! tracksSeq
 
     }
   }

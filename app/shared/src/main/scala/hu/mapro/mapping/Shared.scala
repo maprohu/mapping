@@ -1,6 +1,6 @@
 package hu.mapro.mapping
 
-import hu.mapro.mapping.Messaging.{Cycleways, Polygon}
+import hu.mapro.mapping.Messaging._
 
 import scala.concurrent.Future
 
@@ -12,20 +12,19 @@ trait LatLon {
 case class Coordinates(lat: Double, lon: Double) extends LatLon
 case class Position(lat: Double, lon: Double, timestamp: Long) extends LatLon
 case class Track(positions: Seq[Position], id : Int)
+case class Cycleways(paths: Seq[Seq[Coordinates]], bounds: Polygon)
 
 
 
 trait Api {
-  def cycleways() : Future[Cycleways]
   def generateImg(bounds: Polygon) : Future[Seq[Seq[Position]]]
 }
 
 
 object Messaging {
   type Polygon = Seq[Coordinates]
-  type Polyline = Seq[Coordinates]
-  type Cycleways = Seq[Polyline]
   type Polygons = Seq[Polygon]
+  type Polyline = Seq[Coordinates]
 
   sealed trait ServerToClientMessage
   object Tick extends ServerToClientMessage

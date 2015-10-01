@@ -5,20 +5,20 @@ import com.github.sjsf.leaflet._
 import com.github.sjsf.leaflet.contextmenu.Implicits._
 import com.github.sjsf.leaflet.contextmenu.{MixinItemOptions, MixinOptions}
 import com.github.sjsf.leaflet.draw._
-import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab, TabLike}
-import hu.mapro.mapping._
+import com.github.sjsf.leaflet.sidebarv2.{Html, LControlSidebar, Tab}
+import hu.mapro.mapping.Messaging._
+import hu.mapro.mapping.{Coordinates, _}
 import hu.mapro.mapping.client.ui.GpsTracksUI
+import monifu.concurrent.Implicits.globalScheduler
 import monifu.reactive.Ack.Continue
 import monifu.reactive.Observer
 import org.querki.jsext.JSOptionBuilder._
 import org.scalajs.dom
-import org.scalajs.dom.raw.{MessageEvent, WebSocket, FormData}
 import org.scalajs.dom._
-import hu.mapro.mapping.Coordinates
-import hu.mapro.mapping.Messaging._
+import org.scalajs.dom.raw.{MessageEvent, WebSocket}
+import org.scalajs.jquery._
 import rx._
 
-import monifu.concurrent.Implicits.globalScheduler
 import scala.concurrent.Future
 import scala.scalajs.js
 import scala.scalajs.js.Any._
@@ -26,7 +26,6 @@ import scala.scalajs.js.JSConverters._
 import scala.scalajs.js.UndefOr._
 import scalatags.JsDom.TypedTag
 import scalatags.JsDom.all._
-import org.scalajs.jquery._
 
 /**
  * Created by pappmar on 21/09/2015.
@@ -196,7 +195,7 @@ class WebUIDom(store: Store) {
         gpsTracksTab.serverToClient.onNext(m)
       case CyclewaysChanged(cycleways) =>
         cyclewaysLayer.setLatLngs(
-          cycleways.map { track =>
+          cycleways.paths.map { track =>
             track.map(p => LLatLng(p.lat, p.lon)).toJSArray
           }.toJSArray
         )

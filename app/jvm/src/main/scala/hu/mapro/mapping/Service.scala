@@ -2,7 +2,7 @@ package hu.mapro.mapping
 
 
 import com.vividsolutions.jts.geom.{Coordinate, GeometryFactory}
-import hu.mapro.mapping.Messaging.Cycleways
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 
@@ -12,7 +12,7 @@ class Service(db: DB) extends Api {
 
 
 
-  lazy val cws: Cycleways = MS.cycleways(
+  lazy val cws = MS.cycleways(
     node => Coordinates(
       lat = (node \ "@lat").text.toDouble,
       lon = (node \ "@lon").text.toDouble
@@ -21,9 +21,6 @@ class Service(db: DB) extends Api {
     (way, nodes) => nodes
   )
 
-  override def cycleways() = Future {
-    cws
-  }
 
   def wayTypes(): Seq[String] = MS.highwayTags
 

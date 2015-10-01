@@ -2,15 +2,16 @@ package hu.mapro.mapping.actors
 
 import java.net.URLEncoder
 
-import akka.actor.{Actor, Stash}
+import akka.actor.{Actor, ActorLogging, ActorRef, Stash}
 import akka.http.scaladsl.Http
 import akka.http.scaladsl.model._
 import akka.http.scaladsl.unmarshalling.Unmarshaller
 import akka.pattern._
 import akka.stream.ActorMaterializer
-import hu.mapro.mapping.Coordinates
 import hu.mapro.mapping.Messaging._
+import hu.mapro.mapping._
 import hu.mapro.mapping.actors.MainActor._
+import hu.mapro.mapping.api.DaemonApi.RequestGarminImg
 import rapture.json.Json
 import rapture.json.jsonBackends.json4s._
 import reactivemongo.api._
@@ -24,12 +25,14 @@ import scala.util.{Properties, Random}
  * Created by marci on 26-09-2015.
  */
 
-class OSMActor extends Actor with Stash {
+class OSMActor(db: ActorRef) extends Actor with Stash with ActorLogging {
   import OSMActor._
   import context.dispatcher
 
   implicit val coordinatesHandler: BSONHandler[BSONDocument, Coordinates] =
     Macros.handler[Coordinates]
+  implicit val cyclewaysHandler: BSONHandler[BSONDocument, Cycleways] =
+    Macros.handler[Cycleways]
 //  implicit val cyclewaysDBHandler: BSONHandler[BSONDocument, CyclewaysDB] =
 //    Macros.handler[CyclewaysDB]
   implicit val cyclewaysDBReader = Macros.reader[CyclewaysDB]
@@ -52,62 +55,49 @@ class OSMActor extends Actor with Stash {
     )
     .cursor[CyclewaysDB]()
     .headOption
-  val loadAOI = coll
-    .find(
-      BSONDocument("_id" -> Ids.aoi.toString)
-    )
-    .cursor[AoiDB]()
-    .headOption
 
   for {
-    (cycleways, aoi) <-
+    (cycleways) <-
       for {
         cycleways <- loadCycleways
-        aoi <- loadAOI
-      } yield (cycleways, aoi)
+      } yield (cycleways)
   } {
-    self ! DataLoaded(cycleways.map(_.cycleways), aoi.map(_.aoi))
+    self ! DataLoaded(cycleways.map(_.cycleways))
   }
 
   def receive = {
-    case DataLoaded(cycleways, aoi) =>
+    case DataLoaded(cycleways) =>
       unstashAll()
-      context.become(working(cycleways, aoi))
+      context.become(working(cycleways))
     case _ => stash()
   }
 
 
-  def working(cycleways: Option[Cycleways], aoi: Option[Polygon]) : Receive = {
+  def working(cycleways: Option[Cycleways]) : Receive = {
     case FetchCycleways(polygon) =>
       fetchCyclewaysOSM(polygon)
         .map(CyclewaysFetched(_))
         .pipeTo(self)
       
     case CyclewaysFetched(newCycleways) =>
+      log.debug("Processing cycleways...")
       coll.update(
         BSONDocument("_id" -> Ids.cycleways.toString),
         CyclewaysDB(newCycleways),
         upsert = true
       )
       context.parent ! ToAllClients(CyclewaysChanged(newCycleways))
-      context.become(working(Some(newCycleways), aoi))
+      context.become(working(Some(newCycleways)))
 
-    case UpdateAOI(newAoi) =>
-      coll.update(
-        BSONDocument("_id" -> Ids.aoi.toString),
-        AoiDB(newAoi),
-        upsert = true
-      )
-      context.parent ! ToAllClients(AOIUpdated(newAoi))
-      context.become(working(cycleways, Some(newAoi)))
 
     case NewClient(client) =>
       cycleways.foreach(
         client ! CyclewaysChanged(_)
       )
-      aoi.foreach(
-        client ! AOIUpdated(_)
-      )
+
+    case RequestGarminImg(_) =>
+      db.ask()
+
   }
 
   val overpassServers = Vector(
@@ -136,6 +126,7 @@ class OSMActor extends Actor with Stash {
   implicit val materializer = ActorMaterializer()
 
   def fetchCyclewaysOSM(polygon: Seq[Coordinates]) : Future[Cycleways] = {
+    log.debug("Querying OSM...")
     val osmQuery: String = cyclewaysRequestPayload(polygon).toString
     Http().singleRequest(
       HttpRequest(
@@ -148,6 +139,7 @@ class OSMActor extends Actor with Stash {
       )
     ).flatMap { res =>
       Unmarshaller.byteStringUnmarshaller.mapWithCharset({ (data, charset) =>
+        log.debug("Parsing OSM response...")
         val jsonString:String = data.decodeString(charset.value)
         val doc = Json.parse(jsonString)
 
@@ -167,10 +159,12 @@ class OSMActor extends Actor with Stash {
                 )
             })(collection.breakOut)
 
-        ways
+        val cws = ways
           .map { way =>
             way.nodes.as[Seq[Long]].map(nodeMap)
           }
+
+        Cycleways(cws, polygon)
 
       }).apply(res.entity)
     }
@@ -181,11 +175,10 @@ class OSMActor extends Actor with Stash {
 
 object OSMActor {
   case class CyclewaysFetched(cycleways: Cycleways)
-  case class DataLoaded(cycleways: Option[Cycleways], aoi: Option[Polygon])
+  case class DataLoaded(cycleways: Option[Cycleways])
 
   object Ids extends Enumeration {
     val cycleways = Value
-    val aoi = Value
   }
 
 }

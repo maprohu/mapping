@@ -1,8 +1,7 @@
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
-import com.typesafe.sbt.web.SbtWeb
 import com.typesafe.sbt.web.Import.WebKeys._
+import com.typesafe.sbt.web.SbtWeb
 import spray.revolver.RevolverPlugin.Revolver
-import scala.collection.JavaConversions._
 
 val webAssetsBase = SettingKey[File]("web-assets-base", "The directory where web assets are written")
 val webAssetsPath = SettingKey[String]("web-assets-path", "The path within the web-assets-base where assets are written")
@@ -118,6 +117,7 @@ lazy val api = project
 
 
 lazy val daemon = project
+  .enablePlugins(JavaAppPackaging)
   .settings(Revolver.settings: _*)
   .settings(commonSettings:_*)
   .settings(

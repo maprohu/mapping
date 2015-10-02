@@ -1,4 +1,5 @@
 import com.typesafe.sbt.packager.archetypes.JavaAppPackaging
+import com.typesafe.sbt.packager.universal.UniversalPlugin.autoImport.stage
 import com.typesafe.sbt.web.Import.WebKeys._
 import com.typesafe.sbt.web.SbtWeb
 import spray.revolver.RevolverPlugin.Revolver
@@ -6,6 +7,8 @@ import spray.revolver.RevolverPlugin.Revolver
 val webAssetsBase = SettingKey[File]("web-assets-base", "The directory where web assets are written")
 val webAssetsPath = SettingKey[String]("web-assets-path", "The path within the web-assets-base where assets are written")
 val webAssetsTarget = SettingKey[File]("web-assets-target", "The directory where web asset files will be written")
+
+val installWindows = TaskKey[File]("install-windows", "Deploys the application on windows.")
 
 lazy val commonSettings = Seq(
   version := "0.1-SNAPSHOT",
@@ -121,7 +124,17 @@ lazy val daemon = project
   .settings(Revolver.settings: _*)
   .settings(commonSettings:_*)
   .settings(
-    libraryDependencies ++= Deps.daemonDependencies
+    libraryDependencies ++= Deps.daemonDependencies,
+
+    installWindows := {
+      val dest = new File("c:/oracle/wls/mapping")
+      println("Installing on Windows...")
+
+      val staged = stage.value
+      IO.copyDirectory(staged, dest, overwrite = true)
+
+      dest
+    }
   )
   .dependsOn(api)
 

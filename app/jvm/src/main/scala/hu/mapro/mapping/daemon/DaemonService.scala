@@ -10,7 +10,7 @@ import akka.stream.stage._
 import akka.util.ByteString
 import hu.mapro.mapping.MappingClients
 import hu.mapro.mapping.actors.MainActor.GpsTrackUploaded
-import hu.mapro.mapping.api.DaemonApi.{DaemonToServerMessage, GarminImg, ServerToDaemonMessage}
+import hu.mapro.mapping.api.DaemonApi.{DaemonToServerMessage, GarminImg, ServerToDaemonMessage, Tick}
 
 import scala.concurrent.ExecutionContext.Implicits.global
 /**
@@ -44,6 +44,7 @@ class DaemonService(
             .runFold("")(_ ++ _)
             .map(str => upickle.default.read[DaemonToServerMessage](str))
       })
+      .filter(_ != Tick)
       .via(mappingClients.daemonFlow()) // ... and route them through the chatFlow ...
       .map {
       case GarminImg(data) =>

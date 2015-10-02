@@ -8,6 +8,8 @@ object DaemonApi {
   sealed trait Message
   sealed trait DaemonToServerMessage extends Message
   sealed trait ServerToDaemonMessage extends Message
+
+  object Tick extends ServerToDaemonMessage
   case class OfferGpsTrackHash(hash: String) extends DaemonToServerMessage
   case class RequestGarminImg(hash: Option[String]) extends DaemonToServerMessage
   case class AcceptGpsTrackHash(hash: String) extends ServerToDaemonMessage

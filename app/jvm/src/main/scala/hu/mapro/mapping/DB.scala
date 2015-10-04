@@ -6,13 +6,14 @@ import hu.mapro.mapping.api.Util
 import scala.concurrent.ExecutionContext.Implicits.global
 
 import com.google.common.io.ByteSource
-import slick.jdbc.DatabaseUrlDataSource
+import slick.jdbc.{JdbcBackend, DatabaseUrlDataSource}
 import slick.jdbc.JdbcBackend.Database
 import slick.driver.PostgresDriver.api._
 import slick.jdbc.meta.MTable
 
 import scala.concurrent.{Future, Await}
 import scala.util.Properties
+import scala.async.Async.{async, await}
 
 trait DB {
 
@@ -48,7 +49,7 @@ class DBPostgres extends DB {
 //    driver = "org.postgresql.Driver"
 //  )
 
-  val db = Database.forDataSource(ds)
+  val db: JdbcBackend.DatabaseDef = Database.forDataSource(ds)
 
 
   case class GpsTrack(
@@ -120,11 +121,14 @@ object DBPostgres {
         )
       }
     )
-    db
-      .run(MTable.getTables)
-      .flatMap[Any] {
-        case tables if !tables.exists(t => t.name.name == "gps_tracks") => db.run(setup)
-        case _ => Future(())
-      }.map(_ => dbp)
+
+    async {
+      val tables = await( db.run(MTable.getTables) )
+      if (!tables.exists(t => t.name.name == "gps_tracks")) {
+        await( db.run(setup) )
+      }
+
+      dbp
+    }
   }
 }

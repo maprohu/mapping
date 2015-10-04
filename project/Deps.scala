@@ -33,7 +33,10 @@ object Deps {
     "com.softwaremill" %% "akka-http-session" % "0.1.4",
     "com.propensive" %% "rapture-json" % "2.0.0-M2-SNAPSHOT",
     "com.propensive" %% "rapture-json-json4s" % "2.0.0-M2-SNAPSHOT",
-    "org.reactivemongo" %% "reactivemongo" % "0.11.7"
+    "org.reactivemongo" %% "reactivemongo" % "0.11.7",
+    "org.scala-lang.modules" %% "scala-async" % "0.9.5",
+    "org.scala-lang.modules" %% "scala-pickling" % "0.10.1",
+    "org.scaldi" %% "scaldi-akka" % "0.5.6"
   )
 
   val appDependencies = (p:CrossProject) => {p.settings(libraryDependencies ++= Seq(
